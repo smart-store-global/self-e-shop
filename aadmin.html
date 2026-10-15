@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔒 Secret Master Admin Dashboard</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f1f5f9; color: #1e293b; margin: 0; padding: 20px; }
+        .admin-container { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .panel-card { background: #fff; border: 1px solid #e2e8f0; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        h3 { margin-top: 0; color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px; font-size: 16px; }
+        label { font-size: 12px; font-weight: 600; color: #64748b; display: block; margin-top: 12px; margin-bottom: 4px; }
+        select, input[type="text"], input[type="number"], textarea { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; outline: none; font-size: 14px; }
+        select:focus, input:focus, textarea:focus { border-color: #ff5722; }
+        button { width: 100%; background: #ff5722; color: white; border: none; padding: 11px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px; margin-top: 12px; }
+        button:hover { background: #e04716; }
+        .btn-green { background: #22c55e; } .btn-green:hover { background: #16a34a; }
+        .btn-blue { background: #3b82f6; } .btn-blue:hover { background: #2563eb; }
+        #chat-logs-area { height: 250px; overflow-y: auto; padding: 15px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; display: flex; flex-direction: column; gap: 10px; }
+        .notification-bar { padding: 10px 15px; background: #3b82f6; color: white; border-radius: 6px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: bold; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { opacity: 0.9; } 50% { opacity: 1; } 100% { opacity: 0.9; } }
+    </style>
+</head>
+<body>
+
+    <div style="text-align:center; margin-bottom: 20px;">
+        <h2 style="margin:0; color:#0f172a;">🔒 Central Master Control Panel</h2>
+        <p style="margin:5px 0; color:#64748b;">Enter client ID to instantly push balance, select products to assign orders, notices, and chat live.</p>
+    </div>
+
+    <!-- গ্লোবাল লাইভ নোটিফিকেশন এলার্ট এরিয়া -->
+    <div id="globalNoticeAlertContainer" style="max-width: 1100px; margin: 0 auto;"></div>
+
+    <!-- গ্লোবাল টার্গেট ক্লায়েন্ট আইডি বক্স -->
+    <div class="panel-card" style="max-width: 1100px; margin: 0 auto 20px auto; border: 2px solid #ff5722;">
+        <h3 style="color:#ff5722;">🎯 Target Client Account Configuration</h3>
+        <label>Enter Target Customer Shop ID (Number):</label>
+        <input type="text" id="targetClientID" placeholder="e.g. 74514243" oninput="syncChatWithClient()" style="font-weight: bold; font-size: 16px; border-color: #ff5722;">
+        <p style="margin: 5px 0 0 0; font-size: 11px; color: #64748b;">* নিচে যেকোনো অ্যাকশন নেওয়ার আগে ওপরে এই গ্রাহকের সঠিক আইডি নাম্বারটি লিখে নিন।</p>
+    </div>
+
+    <div class="admin-container">
+        <!-- বাম কলাম: ব্যালেন্স, অর্ডার ও নোটিশ পুশ ইঞ্জিন -->
+        <div>
+            <!-- ১. ওয়ালেট ক্রেডিট কন্ট্রোলার -->
+            <div class="panel-card">
+                <h3>💰 Wallet Credit Controller</h3>
+                <label>Deposit Amount (USD):</label>
+                <input type="number" id="adminDepositAmount" placeholder="e.g. 500">
+                <button class="btn-green" onclick="adminCreditBalance()">Load Dollars to Wallet</button>
+            </div>
+
+            <!-- ২. স্মার্ট অর্ডার পুশ ইঞ্জিন -->
+            <div class="panel-card">
+                <h3>📦 Force Assign Custom Drop Order</h3>
+                <label>Select Product from System List:</label>
+                <select id="adminProductSelect">
+                    <option value="">-- Choose a Product to Order --</option>
+                </select>
+                <button class="btn-blue" onclick="adminPushOrder()">Force Dispatch Order</button>
+            </div>
+
+            <!-- ৩. পুশ নোটিফিকেশন বোর্ড -->
+            <div class="panel-card">
+                <h3>📢 Flash System Notice</h3>
+                <label>Write Breaking Notice Message:</label>
+                <textarea id="adminNoticeMessage" rows="2" placeholder="Type notice here..."></textarea>
+                <button onclick="adminBroadcastNotice()">Publish Direct Notice</button>
+            </div>
+        </div>
+        <!-- ডান কলাম: লাইভ কাস্টমার সাপোর্ট ও মেসেজিং -->
+        <div class="panel-card" style="display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+                <h3>💬 Private Live Support Stream</h3>
+                <div id="chat-logs-area">
+                    <div style="text-align: center; color: #94a3b8; margin-top: 100px; font-size: 13px;">Enter a customer ID above to view live messages.</div>
+                </div>
+            </div>
+            
+            <div style="margin-top: 15px;">
+                <div style="display: flex; gap: 5px; align-items: center;">
+                    <input type="file" id="adminPrivateFileInput" accept="image/*" style="display: none;" onchange="handlePrivateChatImage(event, 'admin')">
+                    <button type="button" onclick="document.getElementById('adminPrivateFileInput').click()" style="background: #334155; color: white; border: 1px solid #475569; padding: 10px 12px; border-radius: 4px; cursor: pointer; font-size: 16px; width: auto; margin: 0;">📎</button>
+                    
+                    <input type="text" id="adminReplyMessage" placeholder="Admin private answer..." style="flex: 1;">
+                    <button onclick="sendAdminReply()" style="background: #22c55e; color: white; border: none; padding: 11px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; width: auto; margin: 0;">Reply</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ফিক্সড করা ফায়ারবেস অফিশিয়াল কোর এবং ডাটাবেজ লাইব্রেরি লিংকসমূহ -->
+    <script src="https://gstatic.com"></script>
+    <script src="https://gstatic.com"></script>
+    <script>
+        // ১. প্রোডাক্ট ডাটাবেজ লিস্ট
+        const extendedProducts = [
+            { id: 1, title: "Children's Ski Suit Warm Boys Girls Waterproof", originalPrice: 65.50 },
+            { id: 2, title: "Winter Thick Windproof Outdoor Snowboard Jacket Onesie", originalPrice: 72.30 },
+            { id: 3, title: "Thicken Fleece Hooded Jumpsuit Infant Outerwear", originalPrice: 35.90 },
+            { id: 35, title: "Double Breasted Coat Wool Atmospheric Field Coat", originalPrice: 109.70 },
+            { id: 36, title: "Large Intelligent Aromatherapy Machine Air System", originalPrice: 107.90 },
+            { id: 37, title: "Premium One-Piece Tie-Dye Children's Ski Suit with Cute Plush Hood", originalPrice: 59.51 }
+        ];
+
+        window.onload = function() {
+            const selectBox = document.getElementById('adminProductSelect');
+            extendedProducts.forEach(prod => {
+                const opt = document.createElement('option');
+                opt.value = prod.id;
+                opt.innerText = `[ID: ${prod.id}] ${prod.title} - $${prod.originalPrice}`;
+                selectBox.appendChild(opt);
+            });
+        };
+
+        // ফায়ারবেস কনফিগারেশন চাবি (আপনার নতুন ফ্রেশ অ্যাপের সাথে নিখুঁত মিল)
+        const firebaseConfig = {
+            apiKey: "AIzaSyCN2rRO11v1gZQ54G7N339nD_XiOLNbfKw",
+            authDomain: "://firebaseapp.com",
+            databaseURL: "https://firebaseio.com",
+            projectId: "self-e-shop",
+            storageBucket: "self-e-shop.firebasestorage.app",
+            messagingSenderId: "931929696538",
+            appId: "1:931929696538:web:9e52b9e72b5ddee06f24a3",
+            measurementId: "G-K28PMC5YL6"
+        };
+
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const database = firebase.database();
+        let chatListener = null;
+
+        // গ্লোবাল ইনবক্স নোটিফায়ার ইঞ্জিন (অন্য গ্রাহকের লাইভ মেসেজ ডিটেক্টর)
+        database.ref('chats').on('child_changed', (snapshot) => {
+            const rawInputID = document.getElementById('targetClientID').value.trim();
+            const clientID = snapshot.key;
+            
+            if (clientID !== rawInputID) {
+                const messages = snapshot.val();
+                const msgKeys = Object.keys(messages);
+                const lastMsg = messages[msgKeys[msgKeys.length - 1]];
+                
+                if (lastMsg && lastMsg.sender === 'user') {
+                    showGlobalMessageAlert(clientID, lastMsg.message, lastMsg.type);
+                }
+            }
+        });
+
+        function showGlobalMessageAlert(id, text, type) {
+            const container = document.getElementById('globalNoticeAlertContainer');
+            const alertText = type === 'image' ? '📎 Sent an Image' : text.substring(0, 30) + (text.length > 30 ? '...' : '');
+            
+            container.innerHTML = `
+                <div class="notification-bar" id="alert_${id}">
+                    <span>🔔 New Message from Shop ID <b>${id}</b>: "${alertText}"</span>
+                    <button onclick="openClientFromAlert('${id}')" style="width:auto; margin:0; padding:5px 10px; background:#fff; color:#3b82f6; font-size:12px; border-radius:4px; border:none; cursor:pointer; font-weight:bold;">Open Chat</button>
+                </div>
+            `;
+        }
+
+        function openClientFromAlert(id) {
+            document.getElementById('targetClientID').value = id;
+            syncChatWithClient();
+            const alertBox = document.getElementById(`alert_${id}`);
+            if(alertBox) alertBox.remove();
+        }
+        // চ্যাট সিঙ্ক এবং মেসেজিং লজিক ফাংশন
+        function syncChatWithClient() {
+            const rawInputID = document.getElementById('targetClientID').value.trim();
+            const chatLog = document.getElementById('chat-logs-area');
+            const existingAlert = document.getElementById(`alert_${rawInputID}`);
+            if(existingAlert) existingAlert.remove();
+
+            if (!rawInputID) {
+                chatLog.innerHTML = `<div style="text-align: center; color: #94a3b8; margin-top: 100px; font-size: 13px;">Enter a customer ID above to view live messages.</div>`;
+                if(chatListener) database.ref().off();
+                return;
+            }
+
+            if(chatListener) database.ref('chats/' + rawInputID).off();
+            chatListener = database.ref('chats/' + rawInputID).on('value', (snapshot) => {
+                chatLog.innerHTML = "";
+                if(snapshot.exists()) {
+                    snapshot.forEach((childSnapshot) => {
+                        const data = childSnapshot.val();
+                        const msg = document.createElement('div');
+                        if (data.sender === 'user') {
+                            msg.style.cssText = "background:#ff5722; color:#fff; padding:8px 12px; border-radius:8px; align-self:start; max-width:80%; margin: 2px 0;";
+                        } else {
+                            msg.style.cssText = "background:#e2e8f0; color:#1e293b; padding:8px 12px; border-radius:8px; align-self:end; max-width:80%; margin: 2px 0;";
+                        }
+                        if(data.type === 'image') {
+                            const img = document.createElement('img');
+                            img.src = data.message;
+                            img.style.cssText = "max-width:150px; border-radius:6px; display:block;";
+                            msg.appendChild(img);
+                        } else {
+                            msg.innerText = (data.sender === 'user' ? 'Client: ' : 'You: ') + data.message;
+                        }
+                        chatLog.appendChild(msg);
+                    });
+                    chatLog.scrollTop = chatLog.scrollHeight;
+                } else {
+                    chatLog.innerHTML = `<div style="text-align: center; color: #94a3b8; margin-top: 100px; font-size: 13px;">No message history found with this client ID.</div>`;
+                }
+            });
+        }
+
+        // ওয়ালেট ব্যালেন্স ক্রেডিট ফাংশন
+        function adminCreditBalance() {
+            const rawInputID = document.getElementById('targetClientID').value.trim();
+            const amount = document.getElementById('adminDepositAmount').value;
+            if(!rawInputID) return alert("Please type the target Customer ID first!");
+            if(!amount) return alert("Please enter the dollar amount!");
+
+            database.ref('shop_traffic_' + rawInputID).update({
+                balance: parseFloat(amount)
+            }).then(() => {
+                alert("Successfully loaded \$" + amount + " to client: " + rawInputID);
+                document.getElementById('adminDepositAmount').value = '';
+            }).catch(e => alert("Error: " + e.message));
+        }
+
+        // প্রোডাক্ট অর্ডার পুশ ফাংশন
+        function adminPushOrder() {
+            const rawInputID = document.getElementById('targetClientID').value.trim();
+            const selectedProdId = document.getElementById('adminProductSelect').value;
+            if(!rawInputID) return alert("Please type the target Customer ID first!");
+            if(!selectedProdId) return alert("Please select a product from the list!");
+
+            const product = extendedProducts.find(p => p.id == selectedProdId);
+            if(!product) return alert("Product data mismatch!");
+
+            const orderData = {
+                orderId: "ORD-" + Math.floor(Math.random() * 90000) + 10000,
+                title: product.title,
+                price: parseFloat(product.originalPrice),
+                sku: "SKU-PROD-" + product.id,
+                status: "Pending Sourcing"
+            };
+
+            database.ref('orders/' + rawInputID).push(orderData).then(() => {
+                alert(`Order for "${product.title}" successfully assigned to client: ${rawInputID}`);
+                document.getElementById('adminProductSelect').value = "";
+            }).catch(e => alert("Error: " + e.message));
+        }
+
+        // নোটিশ পুশ ফাংশন
+        function adminBroadcastNotice() {
+            const rawInputID = document.getElementById('targetClientID').value.trim();
+            const msg = document.getElementById('adminNoticeMessage').value;
+            if(!rawInputID) return alert("Please type the target Customer ID first!");
+            if(!msg) return alert("Please type the message!");
+
+            database.ref('notices/' + rawInputID).set({
+                text: msg
+            }).then(() => {
+                alert("Notice sent to client: " + rawInputID);
+                document.getElementById('adminNoticeMessage').value = '';
+            }).catch(e => alert("Error: " + e.message));
+        }
+
+        // অ্যাডমিন টেক্সট রিপ্লাই লজিক
+        function sendAdminReply() {
+            const rawInputID = document.getElementById('targetClientID').value.trim();
+            const msgInput = document.getElementById('adminReplyMessage');
+            if(!rawInputID) return alert("Please enter a customer ID to chat!");
+            if(!msgInput.value.trim()) return;
+
+            database.ref('chats/' + rawInputID).push({
+                sender: 'admin',
+                type: 'text',
+                message: msgInput.value.trim()
+            }).then(() => {
+                msgInput.value = '';
+            });
+        }
+
+        // অ্যাডমিন ইমেজ চ্যাট হ্যান্ডলার
+        function handlePrivateChatImage(event, senderType) {
+            const rawInputID = document.getElementById('targetClientID').value.trim();
+            if(!rawInputID) return alert("Please enter a customer ID first!");
+            const file = event.target.files;
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    database.ref('chats/' + rawInputID).push({
+                        sender: 'admin',
+                        type: 'image',
+                        message: e.target.result
+                    });
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+    </script>
+</body>
+</html>
