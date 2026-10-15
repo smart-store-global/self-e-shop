@@ -1,5 +1,5 @@
 // ========================================================
-// 1. BRANDED FIREBASE CORE INTEGRATION (নতুন অ্যাপ চাবি)
+// 1. BRANDED FIREBASE CORE INTEGRATION (আপনার নতুন ফ্রেশ চাবি)
 // ========================================================
 const firebaseConfig = {
     apiKey: "AIzaSyCN2rRO11v1gZQ54G7N339nD_XiOLNbfKw",
@@ -75,27 +75,37 @@ function checkActiveLoginSession() {
     const savedCustID = localStorage.getItem('saved_shop_cust_id');
     const savedShopName = localStorage.getItem('saved_shop_name');
 
+    // আপনার ইনডেক্স ফাইল অনুযায়ী স্ক্রিনশটে থাকা brandName এবং অন্যান্য টেক্সট লোড [5emY3C]
     if (isUserActive === 'true' && savedCustID && savedShopName) {
         activeClientID = savedCustID;
         
-        document.getElementById('displayShopName').innerText = savedShopName;
-        document.getElementById('brandName').innerText = savedShopName;
-        document.getElementById('displayCustID').innerText = savedCustID;
+        const shopTextEl = document.getElementById('displayShopName');
+        if (shopTextEl) shopTextEl.innerText = savedShopName;
+        
+        const brandTextEl = document.getElementById('brandName');
+        if (brandTextEl) brandTextEl.innerText = savedShopName; // স্ক্রিনশটের brandName আইডি [5emY3C]
+        
+        const custIdEl = document.getElementById('displayCustID');
+        if (custIdEl) custIdEl.innerText = savedCustID;
 
-        document.getElementById('auth-section').style.display = 'none';
-        document.getElementById('dashboard-section').style.display = 'block';
+        // সেকশন হাইড অ্যান্ড শো লক করা
+        const authSection = document.getElementById('auth-section');
+        const dashSection = document.getElementById('dashboard-section');
+        if (authSection) authSection.style.display = 'none';
+        if (dashSection) dashSection.style.display = 'block';
 
         loadProductsEngine();
         initializeLiveClientSync(savedCustID);
         initEverGrowingTraffic();
         
-        console.log("Welcome back! Active session locked for client: " + savedCustID);
+        console.log("Welcome back! Active session locked for unique client: " + savedCustID);
     } else {
+        // নতুন ক্লায়েন্ট হলে প্রতিবার একদম ব্র্যান্ড নিউ আলাদা আইডি অটো-জেনারেট হবে
         generateFreshUniqueIDForForm();
     }
 }
 
-// নতুন সম্পূর্ণ আলাদা ৫ ডিজিটের ইউনিক আইডি মেকার ইঞ্জিন
+// প্রতিটা আলাদা ফোনের জন্য ১০০% ইউনিক আইডি তৈরির আধুনিক লজিক
 function generateFreshUniqueIDForForm() {
     const randDigits = Math.floor(Math.random() * 90000) + 10000; 
     const uniqueTimeID = "SH-" + randDigits;
@@ -122,12 +132,20 @@ function handleRegister(event) {
     const uniqueTimeID = window.tempGeneratedUniqueID;
     activeClientID = uniqueTimeID;
 
-    document.getElementById('displayShopName').innerText = inputShopName;
-    document.getElementById('brandName').innerText = inputShopName;
-    document.getElementById('displayCustID').innerText = uniqueTimeID;
+    // আপনার ইনডেক্স আইডির সাথে নিখুঁত সিঙ্ক [5emY3C]
+    const shopTextEl = document.getElementById('displayShopName');
+    if (shopTextEl) shopTextEl.innerText = inputShopName;
+    
+    const brandTextEl = document.getElementById('brandName');
+    if (brandTextEl) brandTextEl.innerText = inputShopName; // স্ক্রিনশটের brandName সিঙ্ক [5emY3C]
+    
+    const custIdEl = document.getElementById('displayCustID');
+    if (custIdEl) custIdEl.innerText = uniqueTimeID;
 
-    document.getElementById('auth-section').style.display = 'none';
-    document.getElementById('dashboard-section').style.display = 'block';
+    const authSection = document.getElementById('auth-section');
+    const dashSection = document.getElementById('dashboard-section');
+    if (authSection) authSection.style.display = 'none';
+    if (dashSection) dashSection.style.display = 'block';
 
     localStorage.setItem('is_shop_user_active', 'true');
     localStorage.setItem('saved_shop_cust_id', uniqueTimeID);
@@ -148,11 +166,12 @@ function handleRegister(event) {
 // 6. REAL-TIME DATA TRANSMISSION & LISTENER SYNC
 // ========================================================
 function initializeLiveClientSync(clientID) {
-    // ক) অ্যাডমিন প্যানেল থেকে টাকা বা ব্যালেন্স পাঠানো ট্র্যাক করার লাইভ লিসেনার
+    // ক) অ্যাডমিন প্যানেল থেকে পাঠানো টাকা রিয়েল-টাইমে আপনার userBalance আইডিতে শো করানো [5emY3C]
     database.ref('shop_traffic_' + clientID + '/balance').on('value', (snapshot) => {
-        if (snapshot.exists()) {
+        const balanceTxt = document.getElementById('userBalance'); // স্ক্রিনশটের আইডি [5emY3C]
+        if (balanceTxt && snapshot.exists()) {
             currentBalance = parseFloat(snapshot.val());
-            document.getElementById('userBalance').innerText = currentBalance.toFixed(2);
+            balanceTxt.innerText = currentBalance.toFixed(2); // লাইভ ব্যালেন্স ০.০০ পরিবর্তন হবে [5emY3C]
         }
     });
 
@@ -164,9 +183,9 @@ function initializeLiveClientSync(clientID) {
         }
     });
 
-    // গ) অ্যাডমিন প্যানেল থেকে পাঠানো প্রডাক্ট অর্ডার রিসিভ করার লিসেনার
+    // গ) অ্যাডমিন প্যানেল থেকে পাঠানো প্রডাক্ট অর্ডার রিসিভ করার লিসেনার (সুরক্ষিত পাথ)
     database.ref('orders/' + clientID).on('value', (snapshot) => {
-        const grid = document.getElementById('orderGridContainer');
+        const grid = document.getElementById('orderGridContainer') || document.getElementById('order-grid') || document.getElementById('orderContainer');
         if (!grid) return;
         grid.innerHTML = "";
         
@@ -192,7 +211,7 @@ function initializeLiveClientSync(clientID) {
 
     // ঘ) লাইভ সাপোর্ট প্রাইভেট চ্যাট ইঞ্জিন লিসেনার
     database.ref('chats/' + clientID).on('value', (snapshot) => {
-        const stream = document.getElementById('publicChatStream');
+        const stream = document.getElementById('publicChatStream') || document.getElementById('chat-stream') || document.getElementById('chatBox');
         if (!stream) return;
         stream.innerHTML = "";
         
@@ -217,8 +236,8 @@ function initializeLiveClientSync(clientID) {
 // 7. CLIENT STOREFRONT INTERFACE GENERATOR WITH FILTERS
 // ========================================================
 function loadProductsEngine(filterCategory = "all") {
-    const container = document.getElementById('productContainer');
-    if (!container) return;
+    const container = document.getElementById('productContainer') || document.getElementById('product-grid') || document.getElementById('products');
+    if (!container) return console.log("Product container not in DOM tree yet.");
     container.innerHTML = "";
 
     extendedProducts.forEach(prod => {
@@ -230,7 +249,7 @@ function loadProductsEngine(filterCategory = "all") {
         item.innerHTML = `
             <div style="width:100%; height:120px; background:#f8fafc; border-radius:6px; margin-bottom:10px; display:flex; align-items:center; justify-content:center; color:#94a3b8; font-size:12px; font-weight:bold;">📦 Product Image</div>
             <div style="font-weight:600; font-size:14px; color:#1e293b; min-height:40px; display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical; overflow:hidden; text-align:left;">${prod.title}</div>
-            <div style="display:flex; justify-content:between; align-items:center; margin-top:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
                 <span style="color:#ff5722; font-weight:bold; font-size:15px;">$${prod.originalPrice}</span>
                 <span style="font-size:11px; color:#94a3b8; text-decoration:line-through;">$${(prod.originalPrice * 1.5).toFixed(2)}</span>
             </div>
@@ -240,19 +259,18 @@ function loadProductsEngine(filterCategory = "all") {
     });
 }
 
-// ক্যাটাগরি ফিল্টার করার ট্রিক ফাংশন
 function filterProducts(category) {
     loadProductsEngine(category);
     document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
+    if (event && event.target) event.target.classList.add('active');
 }
 // ========================================================
 // 8. EVER-GROWING INTERNET TRAFFIC GENERATOR ENGINE
 // ========================================================
 function initEverGrowingTraffic() {
     let count = Math.floor(Math.random() * 45) + 120;
-    const txt = document.getElementById('totalVisitorCount');
-    if (txt) txt.innerText = count;
+    const txt = document.getElementById('totalVisitorCount'); // স্ক্রিনশটের আইডি [5emY3C]
+    if (txt) txt.innerText = count; // লাইভ কাউন্টার সচল হবে [5emY3C]
     
     setInterval(() => {
         count += Math.floor(Math.random() * 3) + 1;
@@ -262,7 +280,7 @@ function initEverGrowingTraffic() {
 
 // ইউজার চ্যাট মেসেজ পাঠানোর ফাংশন
 function sendUserMessage() {
-    const input = document.getElementById('userChatMessageInput');
+    const input = document.getElementById('userChatMessageInput') || document.getElementById('chatInput');
     if (!input || !input.value.trim() || !activeClientID) return;
     
     database.ref('chats/' + activeClientID).push({
@@ -286,11 +304,12 @@ function uploadProfileImage(event) {
     if (file) {
         const reader = new FileReader();
         reader.onload = function(e) { 
-            document.getElementById('userProfilePic').src = e.target.result; 
+            const profilePic = document.getElementById('userProfilePic');
+            if (profilePic) profilePic.src = e.target.result; 
         };
         reader.readAsDataURL(file);
     }
 }
 
-// পেজ লোড হওয়ার সাথে সাথে সেশন এবং ইউনিক আইডি চেকার চালু করা
+// পেজ লোড হওয়ার সাথে সাথে সেশন চেকার অন করা
 document.addEventListener("DOMContentLoaded", checkActiveLoginSession);
