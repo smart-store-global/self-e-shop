@@ -23,6 +23,36 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
+// ==================== [actions.js - ভাগ ১] ====================
+
+// ১. ফায়ারবেস মডিউল ইমপোর্ট করা (Realtime Database সংস্করণ)
+import { initializeApp } from "https://gstatic.com";
+import { 
+    getDatabase, 
+    ref, 
+    set, 
+    runTransaction, 
+    onValue, 
+    update, 
+    push 
+} from "https://gstatic.com";
+
+// ২. আপনার নতুন ফায়ারবেস প্রজেক্টের ১০০% সঠিক কনফিগারেশন
+const firebaseConfig = {
+  apiKey: "AIzaSyBdpr3NYTRJGYKq7NLiY6c1XMW55p4nqko",
+  authDomain: "://firebaseapp.com",
+  databaseURL: "https://firebaseio.com",
+  projectId: "self-e-shop-841f4",
+  storageBucket: "self-e-shop-841f4.firebasestorage.app",
+  messagingSenderId: "418069524935",
+  appId: "1:418069524935:web:2ce981897886b27a88e9e2",
+  measurementId: "G-DY4ZBCMZ6E"
+};
+
+// ৩. ফায়ারবেস ইনিশিয়ালাইজ করা
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
 // ৪. গ্লোবাল স্টেট ম্যানেজমেন্ট ভ্যারিয়েবল
 let currentBalance = 0.00;
 let userAssignedOrders = []; 
@@ -37,7 +67,7 @@ for (let i = 1; i <= 50; i++) {
 
 // প্রোফাইল পিকচার আপলোড ফাংশন
 function uploadProfileImage(event) {
-    const file = event.target.files[0];
+    const file = event.target.files;
     if (file) {
         const reader = new FileReader();
         reader.onload = function(e) { 
