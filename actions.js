@@ -36,12 +36,6 @@ for (let i = 1; i <= 50; i++) {
     dummyClients.push({ id: (74514242 + i + 100).toString() });
 }
 
-// গ্লোবাল স্কোপে ফাংশনটি আগে থেকেই খালি ডিক্লেয়ার করে রাখা
-window.handleRegister = null; 
-
-// ব্রাউজারে ফাংশনটি সচল রাখতে গ্লোবাল উইন্ডোতে যুক্ত করা
-window.handleRegister = handleRegister; 
-
 function uploadProfileImage(event) {
     const file = event.target.files;
     if (file) {
@@ -103,6 +97,51 @@ function loadProducts() {
         card.innerHTML = `${freeTag}<img src="${prod.img}" alt="${prod.title}" class="product-img"><div><h3 class="product-title">${prod.title}</h3><div class="product-meta" style="font-size:12px; color:#64748b;">Inventory Showcase</div></div><div class="product-footer"><div class="price-container" style="width:100%;"><span class="product-price" style="text-decoration:none;">$${prod.originalPrice.toFixed(2)}</span></div></div>`;
         container.appendChild(card);
     });
+// ইউনিক সিরিয়াল আইডি সহ নতুন রেজিস্ট্রেশন হ্যান্ডলার (Realtime Database সংস্করণ)
+async function handleRegister(event) {
+    event.preventDefault();
+    const shopName = document.getElementById('shopName').value;
+    
+    try {
+        // ডেটাবেজের metadata/lastId থেকে অটো-ইনক্রিমেন্ট আইডি জেনারেট করা
+        const counterRef = ref(db, "metadata/lastId");
+        
+        const result = await runTransaction(counterRef, (currentValue) => {
+            if (currentValue === null) {
+                return 74514243;
+            }
+            return currentValue + 1;
+        });
+
+        const newID = result.snapshot.val();
+        currentLoggedInClientID = newID.toString();
+
+        // ফায়ারবেস রিয়েল-টাইম ডাটাবেজে গ্রাহকের নতুন অ্যাকাউন্ট তৈরি
+        await set(ref(db, "users/" + currentLoggedInClientID), {
+            shopName: shopName,
+            balance: 0.00,
+            assignedOrders: "" // শুরুতে খালি অর্ডার লিস্ট
+        });
+
+        // UI আপডেট ও ড্যাশবোর্ড দেখানো
+        document.getElementById('displayShopName').innerText = shopName;
+        document.getElementById('brandName').innerText = shopName;
+        document.getElementById('displayCustID').innerText = currentLoggedInClientID;
+        
+        document.getElementById('auth-section').style.display = 'none';
+        document.getElementById('dashboard-section').style.display = 'block';
+        
+        loadProducts();
+        updateOrderInterface();
+        
+        // লাইভ রিয়েল-টাইম ডাটা লিসেনার চালু করা
+        listenToUserDatabase(currentLoggedInClientID);
+        
+        alert(`🎉 রেজিস্ট্রেশন সফল! আপনার ইউনিক আইডি: ${currentLoggedInClientID}`);
+    } catch (e) {
+        console.error("রেজিস্ট্রেশন ব্যর্থ হয়েছে:", e);
+        alert("দুঃখিত, ডাটাবেজ কানেকশনে সমস্যা হয়েছে। আবার চেষ্টা করুন।");
+    }
 }
 
 // 4. Update the Customer Private Modal Table dynamically (With Real-Time RED Alert Counter)
@@ -444,18 +483,27 @@ if (document.readyState === "loading") {
     initEverGrowingTraffic();
 }
 
-// গ্রাহকের অ্যাকাউন্ট রিয়েল-টাইমে আপডেট করার ফাংশন
+// HTML-এর inline onsubmit হ্যান্ডলারের সাথে জাভাস্ক্রিপ্টের সংযোগ তৈরি করা
+window.handleRegister = handleRegister;
+
+// গ্রাহকের স্ক্রিনে অটো-আপডেট পাওয়ার লাইভ লিসেনার (Realtime Database সংস্করণ)
 function listenToUserDatabase(clientID) {
-    onSnapshot(doc(db, "users", clientID), (docSnap) => {
-        if (docSnap.exists()) {
-            const userData = docSnap.data();
+    onValue(ref(db, "users/" + clientID), (snapshot) => {
+        if (snapshot.exists()) {
+            const userData = snapshot.val();
             
             // লাইভ ব্যালেন্স ও অর্ডার আপডেট
             currentBalance = userData.balance || 0.00;
             document.getElementById('userBalance').innerText = currentBalance.toFixed(2);
             
-            userAssignedOrders = userData.assignedOrders || [];
+            userAssignedOrders = userData.assignedOrders ? Object.values(userData.assignedOrders) : [];
             updateOrderInterface(); 
         }
     });
+}
+
+// 🎯 index.html ফাইলের ফর্ম আইডি ট্র্যাক করে সাবমিট লিসেনার যুক্ত করা
+const regForm = document.getElementById('registerForm');
+if (regForm) {
+    regForm.addEventListener('submit', handleRegister);
 }
