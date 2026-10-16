@@ -1,0 +1,22 @@
+<div class="admin-panel">
+    <h4>💾 Admin Wallet Control Panel</h4>
+    <p>Enter the USD amount below to credit the client account balance after receiving payment:</p>
+    <div style="display:flex; gap:10px; margin-top:10px;">
+        <input type="text" id="adminDepositAmount" placeholder="e.g. 500" style="max-width:150px; padding:8px; color:#333; border:1px solid #ccc; outline:none;">
+        <button onclick="addBalanceFromAdmin()" style="background:#22c55e; color:white; border:none; padding:8px 15px; border-radius:4px; cursor:pointer; font-weight:bold;">Add Balance</button>
+    </div>
+</div>
+<div class="admin-chat-reply-panel" style="background:#1e293b; color:#fff; padding:15px; border-radius:8px; margin-top:20px; font-family: sans-serif;">
+    <span style="color:#22c55e; font-weight:bold; font-size:14px;">🔒 Admin Portal Support Control Area:</span>
+    <p style="font-size:12px; color:#94a3b8; margin: 5px 0 10px 0;">Reply to the client's private live support messages from here:</p>
+    
+    <div style="display:flex; gap:5px; align-items:center;">
+        <!-- অ্যাডমিনের ছবি আপলোড বাটন -->
+        <input type="file" id="adminPrivateFileInput" accept="image/*" style="display: none;" onchange="handlePrivateChatImage(event, 'admin')">
+        <button type="button" onclick="document.getElementById('adminPrivateFileInput').click()" style="background: #334155; color: white; border: 1px solid #475569; padding: 8px 10px; border-radius: 4px; cursor: pointer; font-size: 14px;">📎</button>
+        
+        <input type="text" id="adminReplyMessage" placeholder="Admin private answer..." style="flex:1; padding:8px; color:#333; border-radius:4px; border:1px solid #ccc; outline:none;">
+        <button onclick="sendAdminReply()" style="background:#22c55e; color:#fff; border:none; padding:8px 15px; border-radius:4px; cursor:pointer; font-weight:bold;">Reply</button>
+    </div>
+</div>
+<script type="module" src="admin.js"></script>
