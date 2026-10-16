@@ -24,19 +24,6 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
 // ==================== [actions.js - ভাগ ১] ====================
-
-// ১. ফায়ারবেস মডিউল ইমপোর্ট করা (Realtime Database সংস্করণ)
-import { initializeApp } from "https://gstatic.com";
-import { 
-    getDatabase, 
-    ref, 
-    set, 
-    runTransaction, 
-    onValue, 
-    update, 
-    push 
-} from "https://gstatic.com";
-
 // ২. আপনার নতুন ফায়ারবেস প্রজেক্টের ১০০% সঠিক কনফিগারেশন
 const firebaseConfig = {
   apiKey: "AIzaSyBdpr3NYTRJGYKq7NLiY6c1XMW55p4nqko",
