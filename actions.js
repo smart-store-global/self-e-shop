@@ -1,31 +1,5 @@
-// Global State Management Variables
-let currentBalance = 0.00;
-let userAssignedOrders = []; 
-let baseCustomerID = 74514242; // Real client sequential base ID
-
-// Auto-generator loop framework for 50 unique anonymous client nodes
-let dummyClients = [];
-for (let i = 1; i <= 50; i++) {
-    dummyClients.push({ id: (74514242 + i + 100).toString() });
-}
-
-// 1. Core Registration System Interceptor
-function handleRegister(event) {
-    event.preventDefault();
-    const generatedID = baseCustomerID + 1; 
-    
-    document.getElementById('displayShopName').innerText = document.getElementById('shopName').value;
-    document.getElementById('brandName').innerText = document.getElementById('shopName').value;
-    document.getElementById('displayCustID').innerText = generatedID;
-    
-    document.getElementById('auth-section').style.display = 'none';
-    document.getElementById('dashboard-section').style.display = 'block';
-    
-    loadProducts();
-    populateAdminDropdown();
-    updateOrderInterface();
-    initializePublicChatStream();
-}
+// ব্রাউজারে ফাংশনটি সচল রাখতে গ্লোবাল উইন্ডোতে যুক্ত করা
+window.handleRegister = handleRegister; 
 
 function uploadProfileImage(event) {
     const file = event.target.files;
@@ -422,10 +396,25 @@ function initEverGrowingTraffic() {
     // দোকান ওপেন করার ঠিক ৫ সেকেন্ড পরই প্রথম টেস্ট ১/২ জন কাস্টমার বাড়বে
     setTimeout(increaseTraffic, 5000);
 }
-
 // পেজ প্রস্তুত হলে কাউন্টার চালু
 if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", initEverGrowingTraffic);
 } else {
     initEverGrowingTraffic();
+}
+
+// গ্রাহকের অ্যাকাউন্ট রিয়েল-টাইমে আপডেট করার ফাংশন
+function listenToUserDatabase(clientID) {
+    onSnapshot(doc(db, "users", clientID), (docSnap) => {
+        if (docSnap.exists()) {
+            const userData = docSnap.data();
+            
+            // লাইভ ব্যালেন্স ও অর্ডার আপডেট
+            currentBalance = userData.balance || 0.00;
+            document.getElementById('userBalance').innerText = currentBalance.toFixed(2);
+            
+            userAssignedOrders = userData.assignedOrders || [];
+            updateOrderInterface(); 
+        }
+    });
 }
