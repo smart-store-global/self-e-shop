@@ -1,3 +1,44 @@
+// ১. ফায়ারবেস মডিউল ইমপোর্ট করা (Realtime Database সংস্করণ)
+import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
+import {
+  getDatabase,
+  ref,
+  set,
+  runTransaction,
+  onValue
+} from "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js";
+
+// ২. আপনার নতুন ফায়ারবেস স্ক্রিনশট থেকে পাওয়া ১০০% সঠিক কনফিগারেশন
+const firebaseConfig = {
+    apiKey: "AIzaSyBdpr3NYTRJGYKq7nL1yGc1XMW55p4nqko",
+    authDomain: "self-e-shop-841f4.firebaseapp.com",
+    databaseURL: "https://self-e-shop-841f4-default-rtdb.firebaseio.com",
+    projectId: "self-e-shop-841f4",
+    storageBucket: "self-e-shop-841f4.firebasestorage.app",
+    messagingSenderId: "418069524935",
+    appId: "1:418069524935:web:2ce981897086b27a88e9e2",
+    measurementId: "G-DY4Z0CMZ6E"
+  };
+
+// ৩. ফায়ারবেস ইনিশিয়ালাইজ করা
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+// ৪. গ্লোবাল ভ্যারিয়েবল
+let currentBalance = 0.00;
+let userAssignedOrders = []; 
+let currentLoggedInClientID = null; 
+let baseCustomerID = 74514242; 
+
+// ৫০টি ডামি ক্লায়েন্ট ট্রাফিকের লুপ
+let dummyClients = [];
+for (let i = 1; i <= 50; i++) {
+    dummyClients.push({ id: (74514242 + i + 100).toString() });
+}
+
+// গ্লোবাল স্কোপে ফাংশনটি আগে থেকেই খালি ডিক্লেয়ার করে রাখা
+window.handleRegister = null; 
+
 // ব্রাউজারে ফাংশনটি সচল রাখতে গ্লোবাল উইন্ডোতে যুক্ত করা
 window.handleRegister = handleRegister; 
 
