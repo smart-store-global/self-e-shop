@@ -445,7 +445,7 @@ window.sendClientMessage = function() {
     if (!customerID || customerID === 'guest') return alert("❌ Customer Session ID not found!");
 
     // ফাংশনের ভেতরে সঠিক ডাইনামিক ইমপোর্ট লজিক
-    import("https://gstatic.com").then((m) => {
+    import("https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js").then((m) => {
         m.push(m.ref(db, `chats/${customerID}`), {
             sender: 'user', 
             type: 'text', 
@@ -465,7 +465,7 @@ window.sendAdminReply = function() {
     if (!customerID) return alert("❌ Active customer ID not found!");
 
     // ফাংশনের ভেতরে সঠিক ডাইনামিক ইমপোর্ট লজিক
-    import("https://gstatic.com").then((m) => {
+    import("https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js").then((m) => {
         m.push(m.ref(db, `chats/${customerID}`), {
             sender: 'admin', 
             type: 'text', 
