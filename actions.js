@@ -437,18 +437,30 @@ document.getElementById('btn-service').addEventListener('click', function() {
     } else { chatBox.style.display = 'block'; }
 });
 
-function sendClientMessage() {
-    const input = document.getElementById('clientChatMessage'); if (!input.value.trim()) return;
-    const logs = document.getElementById('chat-logs-area'); const msg = document.createElement('div');
-    msg.style.cssText = "background:#ff5722; color:#fff; padding:8px 12px; border-radius:8px; align-self:end; max-width:80%; word-break:break-word;";
-    msg.innerText = input.value; logs.appendChild(msg); logs.scrollTop = logs.scrollHeight; input.value = "";
-}
-function sendAdminReply() {
-    const input = document.getElementById('adminReplyMessage'); if (!input.value.trim()) return;
-    const logs = document.getElementById('chat-logs-area'); const msg = document.createElement('div');
-    msg.style.cssText = "background:#e2e8f0; color:#1e293b; padding:8px 12px; border-radius:8px; align-self:start; max-width:80%; word-break:break-word;";
-    msg.innerText = input.value; logs.appendChild(msg); logs.scrollTop = logs.scrollHeight; input.value = "";
-}
+window.sendClientMessage = function() {
+    const input = document.getElementById('clientChatMessage'); 
+    if (!input || !input.value.trim()) return;
+    const custIDEl = document.getElementById('displayCustID');
+    const customerID = custIDEl ? custIDEl.innerText.trim() : localStorage.getItem('saved_shop_cust_id');
+    if (!customerID || customerID === 'guest') return alert("❌ Customer Session ID not found!");
+    import { push, ref } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js";
+    push(ref(db, `chats/${customerID}`), {
+        sender: 'user', type: 'text', message: input.value.trim(), timestamp: new Date().toISOString()
+    }).then(() => { input.value = ""; }).catch(err => console.error("Firebase send error:", err));
+};
+
+window.sendAdminReply = function() {
+    const input = document.getElementById('adminReplyMessage'); 
+    if (!input || !input.value.trim()) return;
+    const custIDEl = document.getElementById('displayCustID');
+    const customerID = custIDEl ? custIDEl.innerText.trim() : localStorage.getItem('saved_shop_cust_id');
+    if (!customerID) return alert("❌ Active customer ID not found!");
+    import { push, ref } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js";
+    push(ref(db, `chats/${customerID}`), {
+        sender: 'admin', type: 'text', message: input.value.trim(), timestamp: new Date().toISOString()
+    }).then(() => { input.value = ""; }).catch(err => console.error("Firebase admin reply error:", err));
+};
+
 function filterCountry(code) { console.log("Filtering: " + code); }
 function handlePrivateChatImage(event, senderType) {
     const file = event.target.files[0];
