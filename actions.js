@@ -865,6 +865,7 @@ document.getElementById('btn-service').addEventListener('click', function() {
 
 
 // গ্রাহকের মেসেজ Firebase Realtime Database-এ পাঠানো
+
 async function sendClientMessage() {
     const input = document.getElementById('clientChatMessage');
     const logs = document.getElementById('chat-logs-area');
@@ -874,14 +875,14 @@ async function sendClientMessage() {
         return;
     }
 
-    const text = input.value.trim();
-    if (!text) return;
+    const messageText = input.value.trim();
+    if (!messageText) return;
 
-    // লগইন করা গ্রাহকের Firebase user
+    // Modular Firebase Auth
     const user = auth.currentUser;
 
     if (!user) {
-        alert('মেসেজ পাঠাতে প্রথমে লগইন করুন।');
+        alert('মেসেজ পাঠানোর জন্য প্রথমে লগইন করুন।');
         return;
     }
 
@@ -892,31 +893,28 @@ async function sendClientMessage() {
     if (button) button.disabled = true;
 
     try {
-        // Modular Firebase SDK ব্যবহার
+        // Modular Firebase Database
         const messagesRef = ref(db, `chats/${user.uid}/messages`);
-        const messageRef = push(messagesRef);
+        const newMessageRef = push(messagesRef);
 
-        await set(messageRef, {
+        await set(newMessageRef, {
             sender: 'user',
-            text: text,
+            text: messageText,
             type: 'text',
             timestamp: serverTimestamp()
         });
 
-        // Firebase-এ সেভ সফল হলে মেসেজটি UI-তে দেখানো
         const msg = document.createElement('div');
-
         msg.style.cssText =
             'background:#ff5722;color:#fff;padding:8px 12px;' +
             'border-radius:8px;align-self:flex-end;max-width:80%;' +
             'overflow-wrap:anywhere;margin:5px 0;';
 
-        msg.textContent = text;
-        msg.dataset.messageId = messageRef.key;
+        msg.textContent = messageText;
+        msg.dataset.messageId = newMessageRef.key;
 
-        // Realtime listener আগে দেখিয়ে থাকলে duplicate করবে না
         if (!logs.querySelector(
-            '[data-message-id="' + messageRef.key + '"]'
+            `[data-message-id="${newMessageRef.key}"]`
         )) {
             logs.appendChild(msg);
         }
@@ -924,14 +922,11 @@ async function sendClientMessage() {
         logs.scrollTop = logs.scrollHeight;
         input.value = '';
 
-        console.log('Message saved:', messageRef.key);
+        console.log('Message saved:', newMessageRef.key);
 
     } catch (error) {
         console.error('Message send failed:', error);
-
-        alert(
-            'মেসেজ পাঠানো যায়নি। ইন্টারনেট ও Firebase Database Rules পরীক্ষা করুন।'
-        );
+        alert('মেসেজ পাঠানো যায়নি। Console-এ error দেখুন।');
     } finally {
         if (button) button.disabled = false;
     }
