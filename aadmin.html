@@ -34,9 +34,9 @@
     <!-- গ্লোবাল টার্গেট ক্লায়েন্ট আইডি বক্স -->
     <div class="panel-card" style="max-width: 1100px; margin: 0 auto 20px auto; border: 2px solid #ff5722;">
         <h3 style="color:#ff5722;">🎯 Target Client Account Configuration</h3>
-        <label>Enter Target Customer Shop ID (e.g. SH-12345):</label>
-        <input type="text" id="targetClientID" placeholder="Paste the unique shop ID from phone screen" oninput="syncChatWithClient()" style="font-weight: bold; font-size: 16px; border-color: #ff5722;">
-        <p style="margin: 5px 0 0 0; font-size: 11px; color: #64748b;">* নিচে যেকোনো অ্যাকশন নেওয়ার আগে ওপরে গ্রাহকের আসল ইউনিক আইডিটি বসিয়ে নিন।</p>
+        <label>Enter Target Customer Shop ID (Number):</label>
+        <input type="text" id="targetClientID" placeholder="e.g. 74514243" oninput="syncChatWithClient()" style="font-weight: bold; font-size: 16px; border-color: #ff5722;">
+        <p style="margin: 5px 0 0 0; font-size: 11px; color: #64748b;">* নিচে যেকোনো অ্যাকশন নেওয়ার আগে ওপরে এই গ্রাহকের সঠিক আইডি নাম্বারটি লিখে নিন।</p>
     </div>
 
     <div class="admin-container">
@@ -90,11 +90,11 @@
 
     </div>
 
-    <!-- ফিক্সড করা ফায়ারবেস অফিশিয়াল কোর এবং ডাটাবেজ লাইব্রেরি লিংকসমূহ (১০০% ফুল লিংক) -->
+    <!-- ফিক্সড করা ফায়ারবেস অফিশিয়াল কোর এবং ডাটাবেজ লাইব্রেরি লিংকসমূহ -->
     <script src="https://gstatic.com"></script>
     <script src="https://gstatic.com"></script>
     <script>
-        // ১. প্রোডাক্ট ডাটাবেজ লিস্ট (actions.js এর সাথে হুবহু মিল)
+        // ১. প্রোডাক্ট ডাটাবেজ লিস্ট
         const extendedProducts = [
             { id: 1, title: "Children's Ski Suit Warm Boys Girls Waterproof", originalPrice: 65.50 },
             { id: 2, title: "Winter Thick Windproof Outdoor Snowboard Jacket Onesie", originalPrice: 72.30 },
@@ -115,22 +115,20 @@
         };
 
         // ফায়ারবেস কনফিগারেশন চাবি (আপনার নতুন ফ্রেশ অ্যাপের সাথে নিখুঁত মিল)
-        const firebaseConfig = {
-            apiKey: "AIzaSyCN2rRO11v1gZQ54G7N339nD_XiOLNbfKw",
-            authDomain: "://firebaseapp.com",
-            databaseURL: "https://firebaseio.com",
-            projectId: "self-e-shop",
-            storageBucket: "self-e-shop.firebasestorage.app",
-            messagingSenderId: "931929696538",
-            appId: "1:931929696538:web:9e52b9e72b5ddee06f24a3",
-            measurementId: "G-K28PMC5YL6"
-        };
+const firebaseConfig = {
+    apiKey: "AIzaSyBdpr3NYTRJGYKq7nL1yGc1XMW55p4nqko",
+    authDomain: "self-e-shop-841f4.firebaseapp.com",
+    databaseURL: "https://self-e-shop-841f4-default-rtdb.firebaseio.com",
+    projectId: "self-e-shop-841f4",
+    storageBucket: "self-e-shop-841f4.firebasestorage.app",
+    messagingSenderId: "418069524935",
+    appId: "1:418069524935:web:2ce981897086b27a88e9e2",
+    measurementId: "G-DY4Z0CMZ6E"
+  };
+        const app = initializeApp(firebaseConfig);
+const database = getDatabase(app);
+let chatListener = null;
 
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
-        }
-        const database = firebase.database();
-        let chatListener = null;
         // গ্লোবাল ইনবক্স নোটিফায়ার ইঞ্জিন (অন্য গ্রাহকের লাইভ মেসেজ ডিটেক্টর)
         database.ref('chats').on('child_changed', (snapshot) => {
             const rawInputID = document.getElementById('targetClientID').value.trim();
@@ -186,9 +184,9 @@
                         const data = childSnapshot.val();
                         const msg = document.createElement('div');
                         if (data.sender === 'user') {
-                            msg.style.cssText = "background:#ff5722; color:white; padding:8px 12px; border-radius:8px; align-self:flex-start; max-width:80%; margin:2px 0; font-size:13px; width:fit-content; word-break:break-word;";
+                            msg.style.cssText = "background:#ff5722; color:#fff; padding:8px 12px; border-radius:8px; align-self:start; max-width:80%; margin: 2px 0;";
                         } else {
-                            msg.style.cssText = "background:#e2e8f0; color:#1e293b; padding:8px 12px; border-radius:8px; align-self:flex-end; max-width:80%; margin:2px 0; font-size:13px; margin-left:auto; width:fit-content; word-break:break-word;";
+                            msg.style.cssText = "background:#e2e8f0; color:#1e293b; padding:8px 12px; border-radius:8px; align-self:end; max-width:80%; margin: 2px 0;";
                         }
                         if(data.type === 'image') {
                             const img = document.createElement('img');
@@ -207,7 +205,7 @@
             });
         }
 
-        // ওয়ালেট ব্যালেন্স ক্রেডিট ফাংশন (১০০% ফিক্সড ইউআরএল নোড পাথ)
+        // ওয়ালেট ব্যালেন্স ক্রেডিট ফাংশন
         function adminCreditBalance() {
             const rawInputID = document.getElementById('targetClientID').value.trim();
             const amount = document.getElementById('adminDepositAmount').value;
@@ -217,12 +215,12 @@
             database.ref('shop_traffic_' + rawInputID).update({
                 balance: parseFloat(amount)
             }).then(() => {
-                alert("Successfully loaded \$" + amount + " to client wallet: " + rawInputID);
+                alert("Successfully loaded \$" + amount + " to client: " + rawInputID);
                 document.getElementById('adminDepositAmount').value = '';
             }).catch(e => alert("Error: " + e.message));
         }
 
-        // প্রডাক্ট অর্ডার ডিসপ্যাচ ফাংশন
+        // প্রোডাক্ট অর্ডার পুশ ফাংশন
         function adminPushOrder() {
             const rawInputID = document.getElementById('targetClientID').value.trim();
             const selectedProdId = document.getElementById('adminProductSelect').value;
@@ -246,7 +244,7 @@
             }).catch(e => alert("Error: " + e.message));
         }
 
-        // নোটিশ পুш ফাংশন
+        // নোটিশ পুশ ফাংশন
         function adminBroadcastNotice() {
             const rawInputID = document.getElementById('targetClientID').value.trim();
             const msg = document.getElementById('adminNoticeMessage').value;

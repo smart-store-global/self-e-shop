@@ -1,7 +1,43 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
+import { getAnalytics } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-analytics.js";
+import {
+  getDatabase,
+  ref,
+  runTransaction,
+  set,
+} from "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js";
+import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
+const firebaseConfig = {
+  apiKey: "AIzaSyBdpr3NYTRJGYKq7nL1yGc1XMW55p4nqko",
+  authDomain: "self-e-shop-841f4.firebaseapp.com",
+  databaseURL: "https://self-e-shop-841f4-default-rtdb.firebaseio.com",
+  projectId: "self-e-shop-841f4",
+  storageBucket: "self-e-shop-841f4.firebasestorage.app",
+  messagingSenderId: "418069524935",
+  appId: "1:418069524935:web:2ce981897086b27a88e9e2",
+  measurementId: "G-DY4Z0CMZ6E",
+};
+
+export const app = initializeApp(firebaseConfig);
+export const analytics = getAnalytics(app);
+const auth = getAuth(app);
+
 // Global State Management Variables
 let currentBalance = 0.00;
-let userAssignedOrders = []; 
-let baseCustomerID = 74514242; // Real client sequential base ID
+let userAssignedOrders = [];
+const db = getDatabase(app);
+const FIRST_CUSTOMER_ID = 74514244;
+async function getNextCustomerId() {
+  const counterRef = ref(db, "counters/customerId");
+  const result = await runTransaction(counterRef, (currentId) => {
+    if (currentId === null) return FIRST_CUSTOMER_ID;
+    return Number(currentId) + 1;
+  });
+  if (!result.committed) {
+    throw new Error("Customer ID তৈরি করা যায়নি।");
+  }
+  return result.snapshot.val();
+}
 
 // Auto-generator loop framework for 50 unique anonymous client nodes
 let dummyClients = [];
@@ -9,32 +45,98 @@ for (let i = 1; i <= 50; i++) {
     dummyClients.push({ id: (74514242 + i + 100).toString() });
 }
 
-// 1. Core Registration System Interceptor
-function handleRegister(event) {
-    event.preventDefault();
-    const generatedID = baseCustomerID + 1; 
-    
-    document.getElementById('displayShopName').innerText = document.getElementById('shopName').value;
-    document.getElementById('brandName').innerText = document.getElementById('shopName').value;
-    document.getElementById('displayCustID').innerText = generatedID;
-    
-    document.getElementById('auth-section').style.display = 'none';
-    document.getElementById('dashboard-section').style.display = 'block';
-    
-    loadProducts();
-    populateAdminDropdown();
-    updateOrderInterface();
-    initializePublicChatStream();
+// [নতুন সেশন ইঞ্জিন] পেজ রিফ্রেশ দিলে গ্রাহককে ড্যাশবোর্ডে ধরে রাখার অটোমেটিক লজিক
+function checkActiveLoginSession() {
+    const isUserActive = localStorage.getItem('is_shop_user_active');
+    const savedCustID = localStorage.getItem('saved_shop_cust_id');
+    const savedShopName = localStorage.getItem('saved_shop_name');
+
+    // গ্রাহক যদি আগে থেকেই লগইন বা রেজিস্টার্ড থাকে, তবে রিফ্রেশ দিলেও ড্যাশবোর্ডেই থাকবে
+    if (isUserActive === 'true' && savedCustID && savedShopName) {
+        document.getElementById('displayShopName').innerText = savedShopName;
+        document.getElementById('brandName').innerText = savedShopName;
+        document.getElementById('displayCustID').innerText = savedCustID;
+
+        // রেজিস্ট্রেশন পেজ লুকিয়ে সরাসরি মেইন ড্যাশবোর্ড ওপেন করা
+        document.getElementById('auth-section').style.display = 'none';
+        document.getElementById('dashboard-section').style.display = 'block';
+
+        // আপনার প্রজেক্টের বাকি প্রয়োজনীয় ফাংশনগুলো সচল করা
+        if (typeof loadProducts === "function") loadProducts();
+        if (typeof populateAdminDropdown === "function") populateAdminDropdown();
+        if (typeof updateOrderInterface === "function") updateOrderInterface();
+        if (typeof initializePublicChatStream === "function") initializePublicChatStream();
+        if (typeof initEverGrowingTraffic === "function") initEverGrowingTraffic();
+        
+        console.log("Session Restored for Client ID: " + savedCustID);
+    }
 }
 
+// পেজটি ব্রাউজারে রিফ্রেশ বা লোড হওয়া মাত্রই সেশন চেক হবে
+document.addEventListener("DOMContentLoaded", checkActiveLoginSession);
+
+window.handleRegister = async function (event) {
+  event.preventDefault();
+
+  const shopName = document.getElementById("shopName").value.trim();
+  const ownerName = document.getElementById("ownerName").value.trim();
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
+
+  let authAccountCreated = false;
+
+  try {
+    const userCredential = await createUserWithEmailAndPassword(
+      auth,
+      email,
+      password
+    );
+    authAccountCreated = true;
+
+    const customerId = await getNextCustomerId();
+
+    await set(ref(db, `customers/${userCredential.user.uid}`), {
+      customerId,
+      shopName,
+      ownerName,
+      email,
+      createdAt: new Date().toISOString(),
+    });
+
+    // [ম্যাজিক লাইন] গ্রাহকের আইডি ও শপের নাম ব্রাউজারের স্থায়ী স্মৃতিতে লক করা
+    localStorage.setItem('is_shop_user_active', 'true');
+    localStorage.setItem("saved_shop_cust_id", String(customerId));
+    localStorage.setItem("saved_shop_name", shopName);
+
+    alert(`Registration successful. Your customer ID is ${customerId}.`);
+    document.getElementById("registerForm").reset();
+    document.getElementById("displayShopName").innerText = shopName;
+    document.getElementById("brandName").innerText = shopName;
+    document.getElementById("displayCustID").innerText = customerId;
+    document.getElementById("auth-section").style.display = "none";
+    document.getElementById("dashboard-section").style.display = "block";
+} catch (error) {
+  console.error("Registration error details:", error.message, error.stack);
+  alert(`Registration failed: ${error.name}: ${error.message}`);
+}
+};
+
+    if (typeof populateAdminDropdown === "function") populateAdminDropdown();
+    updateOrderInterface();
+    initializePublicChatStream();
+    if (typeof initEverGrowingTraffic === "function") initEverGrowingTraffic();
+
 function uploadProfileImage(event) {
-    const file = event.target.files;
+    const file = event.target.files[0];
     if (file) {
         const reader = new FileReader();
-        reader.onload = function(e) { document.getElementById('userProfilePic').src = e.target.result; };
+        reader.onload = function(e) { 
+            document.getElementById('userProfilePic').src = e.target.result; 
+        };
         reader.readAsDataURL(file);
     }
 }
+
 // 2. Comprehensive 54 Products Database Array (Part 1)
 const productsData = [
     { id: 1, title: "VMAXPRO Mobile Phone High Performance", originalPrice: 270.00, img: "vmaxpro1.jpg", free: false },
@@ -72,8 +174,8 @@ const extendedProducts = [
     { id: 34, title: "Pull Rod Golf Bag Male And Female Portable", originalPrice: 111.93, img: "golfbag.jpg", free: false },
     { id: 35, title: "Double Breasted Coat Wool Atmospheric Field Coat", originalPrice: 109.70, img: "coat.jpg", free: false },
     { id: 36, title: "Large Intelligent Aromatherapy Machine Air System", originalPrice: 107.90, img: "aroma.jpg", free: false },
-    { id: 37, title: "Premium One-Piece Tie-Dye Children's Ski Suit with Cute Plush Hood", originalPrice: 59.51, img: "image_J0UXDs.png", free: false },
-];
+    ];
+
 productsData.push(...extendedProducts);
 // 3. UI Inventory Showcase Renderer
 function loadProducts() {
@@ -89,6 +191,7 @@ function loadProducts() {
         container.appendChild(card);
     });
 }
+loadProducts();
 
 // 4. Update the Customer Private Modal Table dynamically (With Real-Time RED Alert Counter)
 function updateOrderInterface() {
