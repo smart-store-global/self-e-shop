@@ -437,12 +437,36 @@ document.getElementById('btn-service').addEventListener('click', function() {
     } else { chatBox.style.display = 'block'; }
 });
 
-window.sendClientMessage = function() {
-    const input = document.getElementById('clientChatMessage');
+window.sendClientMessage = async function () {
+    const input = document.getElementById("clientChatMessage");
     if (!input || !input.value.trim()) return;
-    const custIDEl = document.getElementById('displayCustID');
-    const customerID = custIDEl ? custIDEl.innerText.trim() : localStorage.getItem('saved_shop_cust_id');
-    if (!customerID || customerID === 'guest') return alert("❌ Customer Session ID not found!");
+
+    const customerID = localStorage.getItem("saved_shop_cust_id");
+
+    if (!customerID || customerID === "guest") {
+        console.error("Customer session ID not found");
+        return;
+    }
+
+    const message = input.value.trim();
+
+    try {
+        const m = await import(
+            "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js"
+        );
+
+        await m.push(m.ref(db, `chats/${customerID}`), {
+            sender: "user",
+            type: "text",
+            message: message,
+            timestamp: new Date().toISOString()
+        });
+
+        input.value = "";
+    } catch (error) {
+        console.error("Firebase send error:", error);
+    }
+};
 
     // ফাংশনের ভেতরে সঠিক ডাইনামিক ইমপোর্ট লজিক
     import("https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js").then((m) => {
@@ -457,26 +481,37 @@ window.sendClientMessage = function() {
     });
 };
 
-window.sendAdminReply = function() {
-    const input = document.getElementById('adminReplyMessage');
+window.sendAdminReply = async function () {
+    const input = document.getElementById("adminReplyMessage");
     if (!input || !input.value.trim()) return;
-    const custIDEl = document.getElementById('displayCustID');
-    const customerID = custIDEl ? custIDEl.innerText.trim() : localStorage.getItem('saved_shop_cust_id');
-    if (!customerID) return alert("❌ Active customer ID not found!");
 
-    // ফাংশনের ভেতরে সঠিক ডাইনামিক ইমপোর্ট লজিক
-    import("https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js").then((m) => {
-        m.push(m.ref(db, `chats/${customerID}`), {
-            sender: 'admin', 
-            type: 'text', 
-            message: input.value.trim(), 
+    const custIDEl = document.getElementById("displayCustID");
+    const customerID =
+        (custIDEl?.innerText || "").trim() ||
+        localStorage.getItem("saved_shop_cust_id");
+
+    if (!customerID || customerID === "guest") {
+        console.error("Active customer ID not found");
+        return;
+    }
+
+    try {
+        const m = await import(
+            "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js"
+        );
+
+        await m.push(m.ref(db, `chats/${customerID}`), {
+            sender: "admin",
+            type: "text",
+            message: input.value.trim(),
             timestamp: new Date().toISOString()
-        }).then(() => { 
-            input.value = ""; 
-        }).catch(err => console.error("Firebase admin reply error:", err));
-    });
-};
+        });
 
+        input.value = "";
+    } catch (error) {
+        console.error("Firebase admin reply error:", error);
+    }
+};
 
 function filterCountry(code) { console.log("Filtering: " + code); }
 function handlePrivateChatImage(event, senderType) {
