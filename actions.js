@@ -437,12 +437,80 @@ document.getElementById('btn-service').addEventListener('click', function() {
     } else { chatBox.style.display = 'block'; }
 });
 
-function sendClientMessage() {
-    const input = document.getElementById('clientChatMessage'); if (!input.value.trim()) return;
-    const logs = document.getElementById('chat-logs-area'); const msg = document.createElement('div');
-    msg.style.cssText = "background:#ff5722; color:#fff; padding:8px 12px; border-radius:8px; align-self:end; max-width:80%; word-break:break-word;";
-    msg.innerText = input.value; logs.appendChild(msg); logs.scrollTop = logs.scrollHeight; input.value = "";
+
+async function sendClientMessage() {
+    const input = document.getElementById('clientChatMessage');
+    const logs = document.getElementById('chat-logs-area');
+
+    if (!input || !logs) {
+        console.error('Chat input বা message area পাওয়া যায়নি।');
+        return;
+    }
+
+    const text = input.value.trim();
+    if (!text) return;
+
+    // লগইন করা গ্রাহক ছাড়া মেসেজ পাঠানো যাবে না
+    const user = firebase.auth().currentUser;
+
+    if (!user) {
+        alert('মেসেজ পাঠাতে প্রথমে লগইন করুন।');
+        return;
+    }
+
+    const button = document.querySelector(
+        '#customer-chat-modal button[onclick="sendClientMessage()"]'
+    );
+
+    if (button) button.disabled = true;
+
+    try {
+        // Firebase Realtime Database-এ মেসেজ সংরক্ষণ
+        const messagesRef = firebase.database()
+            .ref('chats/' + user.uid + '/messages');
+
+        const messageRef = messagesRef.push();
+
+        await messageRef.set({
+            sender: 'user',
+            text: text,
+            type: 'text',
+            timestamp: firebase.database.ServerValue.TIMESTAMP
+        });
+
+        // Firebase-এ সেভ সফল হলেই UI-তে দেখাবে
+        const msg = document.createElement('div');
+
+        msg.style.cssText =
+            'background:#ff5722;color:#fff;padding:8px 12px;' +
+            'border-radius:8px;align-self:flex-end;max-width:80%;' +
+            'overflow-wrap:anywhere;margin:5px 0;';
+
+        msg.textContent = text;
+        msg.dataset.messageId = messageRef.key;
+
+        // Realtime listener আগে থেকেই মেসেজটি দেখালে duplicate করবে না
+        if (!logs.querySelector(
+            '[data-message-id="' + messageRef.key + '"]'
+        )) {
+            logs.appendChild(msg);
+        }
+
+        logs.scrollTop = logs.scrollHeight;
+        input.value = '';
+
+        console.log('Message saved:', messageRef.key);
+
+    } catch (error) {
+        console.error('Message send failed:', error);
+        alert('মেসেজ পাঠানো যায়নি। ইন্টারনেট ও Firebase Database Rules পরীক্ষা করুন।');
+    } finally {
+        if (button) button.disabled = false;
+    }
 }
+
+window.sendClientMessage = sendClientMessage;
+
 function sendAdminReply() {
     const input = document.getElementById('adminReplyMessage'); if (!input.value.trim()) return;
     const logs = document.getElementById('chat-logs-area'); const msg = document.createElement('div');
