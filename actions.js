@@ -479,7 +479,6 @@ window.sendClientMessage = async function () {
             input.value = ""; 
         }).catch(err => console.error("Firebase send error:", err));
     });
-};
 
 window.sendAdminReply = async function () {
     const input = document.getElementById("adminReplyMessage");
