@@ -1,12 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-analytics.js";
-import {
-  getDatabase,
-  ref,
-  runTransaction,
-  set,
-} from "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js";
-import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
+import { getDatabase, ref, runTransaction, set, push, update, onChildAdded } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js";
+import { getAuth, createUserWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
 const firebaseConfig = {
   apiKey: "AIzaSyBdpr3NYTRJGYKq7nL1yGc1XMW55p4nqko",
   authDomain: "self-e-shop-841f4.firebaseapp.com",
@@ -413,75 +408,126 @@ function closeOrderModal() { document.getElementById('order-modal-window').style
 document.getElementById('btn-recharge').addEventListener('click', function() { alert('⚠️ Action Restricted: Please contact our official Customer Service framework to safely credit your store account.'); });
 document.getElementById('btn-withdraw').addEventListener('click', function() { alert('⚠️ Action Restricted: Please connect with Customer Service to securely initiate your withdrawal procedure.'); });
 
-document.getElementById('btn-service').addEventListener('click', function() {
+/* ================= Customer live chat ================= */
+const db = getDatabase(app);
+let chatId = null;
+let chatUnsub = null;
+let chatListenerStarted = false;
+
+onAuthStateChanged(auth, (user) => {
+    if (chatUnsub) { chatUnsub(); chatUnsub = null; }
+    chatListenerStarted = false;
+    const logs = document.getElementById('chat-logs-area');
+    if (logs) logs.innerHTML = '';
+    chatId = user ? user.uid : null;
+    startChatListener();
+});
+
+function compressImage(file, maxSize = 800, quality = 0.7) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = reject;
+        reader.onload = (e) => {
+            const img = new Image();
+            img.onerror = reject;
+            img.onload = () => {
+                const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width * scale;
+                canvas.height = img.height * scale;
+                canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                resolve(canvas.toDataURL('image/jpeg', quality));
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+function renderChatMessage(m) {
+    const logs = document.getElementById('chat-logs-area');
+    if (!logs) return;
+    const msg = document.createElement('div');
+    const isUser = m.sender === 'user';
+    msg.style.cssText = isUser
+        ? "background:#ff5722; color:#fff; padding:8px 12px; border-radius:8px; align-self:flex-end; max-width:80%; word-break:break-word;"
+        : "background:#e2e8f0; color:#1e293b; padding:8px 12px; border-radius:8px; align-self:flex-start; max-width:80%; word-break:break-word;";
+    if (m.image && String(m.image).startsWith('data:image/')) {
+        const img = document.createElement('img');
+        img.src = m.image;
+        img.style.cssText = "max-width:100%; border-radius:6px; display:block;";
+        msg.appendChild(img);
+    } else {
+        msg.textContent = m.text || '';
+    }
+    logs.appendChild(msg);
+    logs.scrollTop = logs.scrollHeight;
+}
+
+function startChatListener() {
+    if (chatListenerStarted || !chatId || !document.getElementById('chat-logs-area')) return;
+    chatListenerStarted = true;
+    chatUnsub = onChildAdded(ref(db, 'chats/' + chatId + '/messages'), (snap) => renderChatMessage(snap.val()));
+}
+
+async function pushUserMessage(data, preview) {
+    if (!chatId) return;
+    const now = Date.now();
+    try {
+        await push(ref(db, 'chats/' + chatId + '/messages'), { sender: 'user', time: now, ...data });
+        await update(ref(db, 'chatMeta/' + chatId), {
+            lastMessage: preview,
+            lastTime: now,
+            unreadAdmin: true,
+            name: (auth.currentUser && auth.currentUser.email) || 'Customer'
+        });
+    } catch (err) {
+        console.error('Send failed:', err);
+    }
+}
+
+window.sendClientMessage = function () {
+    const input = document.getElementById('clientChatMessage');
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    pushUserMessage({ text: text }, text);
+};
+
+window.handlePrivateChatImage = async function (event) {
+    const file = event.target.files[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+        const dataUrl = await compressImage(file);
+        pushUserMessage({ image: dataUrl }, '📷 Photo');
+    } catch (e) {
+        console.error('Image read failed:', e);
+    }
+};
+
+document.getElementById('btn-service').addEventListener('click', function () {
     let chatBox = document.getElementById('customer-chat-modal');
     if (!chatBox) {
         chatBox = document.createElement('div');
         chatBox.id = 'customer-chat-modal';
         chatBox.style.cssText = "position:fixed; bottom:20px; right:20px; width:350px; background:#fff; border:1px solid #eaedf1; border-radius:12px; box-shadow:0 10px 25px rgba(0,0,0,0.15); z-index:9999; overflow:hidden;";
-                        chatBox.innerHTML = `
+        chatBox.innerHTML = `
             <div style="background:#ff5722; color:#fff; padding:15px; font-weight:bold; display:flex; justify-content:space-between; align-items:center;"><span>Private Live Support</span><span style="cursor:pointer;" onclick="this.parentElement.parentElement.style.display='none'">×</span></div>
             <div id="chat-logs-area" style="height:220px; overflow-y:auto; padding:15px; background:#f8fafc; font-size:13px; display:flex; flex-direction:column; gap:10px;"></div>
-            <div style="padding:10px; border-top:1px solid #eaedf1; background:#fff; display:flex; flex-direction:column; gap:8px;">
-                <div style="display:flex; gap:5px; align-items:center;">
-                    <!-- গ্রাহকের ছবি আপলোড বাটন -->
-                    <input type="file" id="privateChatFileInput" accept="image/*" style="display: none;" onchange="handlePrivateChatImage(event, 'user')">
-                    <button type="button" onclick="document.getElementById('privateChatFileInput').click()" style="background: #f1f5f9; border: 1px solid #cbd5e1; padding: 6px 8px; border-radius: 4px; cursor: pointer; font-size: 14px;">📎</button>
-                    <input type="text" id="clientChatMessage" placeholder="Type your personal query..." style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px;">
-                    <button onclick="sendClientMessage()" style="background:#ff5722; color:#fff; border:none; padding:8px 12px; border-radius:4px; cursor:pointer; font-weight:bold;">Send</button>
-                </div>
-                <!-- অ্যাডমিন পোর্টালের কালো বক্সটি এখান থেকে সম্পূর্ণ মুছে দেওয়া হয়েছে যাতে গ্রাহক দেখতে না পায় -->
+            <div style="padding:10px; border-top:1px solid #eaedf1; background:#fff; display:flex; gap:5px; align-items:center;">
+                <input type="file" id="privateChatFileInput" accept="image/*" style="display:none;" onchange="handlePrivateChatImage(event)">
+                <button type="button" onclick="document.getElementById('privateChatFileInput').click()" style="background:#f1f5f9; border:1px solid #cbd5e1; padding:6px 8px; border-radius:4px; cursor:pointer; font-size:14px;">📎</button>
+                <input type="text" id="clientChatMessage" placeholder="Type your personal query..." style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px;" onkeydown="if(event.key==='Enter') sendClientMessage()">
+                <button onclick="sendClientMessage()" style="background:#ff5722; color:#fff; border:none; padding:8px 12px; border-radius:4px; cursor:pointer; font-weight:bold;">Send</button>
             </div>`;
-
         document.body.appendChild(chatBox);
-    } else { chatBox.style.display = 'block'; }
+    } else {
+        chatBox.style.display = 'block';
+    }
+    startChatListener();
 });
 
-function sendClientMessage() {
-    const input = document.getElementById('clientChatMessage'); if (!input.value.trim()) return;
-    const logs = document.getElementById('chat-logs-area'); const msg = document.createElement('div');
-    msg.style.cssText = "background:#ff5722; color:#fff; padding:8px 12px; border-radius:8px; align-self:end; max-width:80%; word-break:break-word;";
-    msg.innerText = input.value; logs.appendChild(msg); logs.scrollTop = logs.scrollHeight; input.value = "";
-}
-function sendAdminReply() {
-    const input = document.getElementById('adminReplyMessage'); if (!input.value.trim()) return;
-    const logs = document.getElementById('chat-logs-area'); const msg = document.createElement('div');
-    msg.style.cssText = "background:#e2e8f0; color:#1e293b; padding:8px 12px; border-radius:8px; align-self:start; max-width:80%; word-break:break-word;";
-    msg.innerText = input.value; logs.appendChild(msg); logs.scrollTop = logs.scrollHeight; input.value = "";
-}
-function filterCountry(code) { console.log("Filtering: " + code); }
-function handlePrivateChatImage(event, senderType) {
-    const file = event.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const chatLog = document.getElementById('chat-logs-area');
-            if (!chatLog) return;
-
-            const msg = document.createElement('div');
-            
-            // গ্রাহকের ছবি ডান পাশে কমলা রঙে এবং অ্যাডমিনের ছবি বাম পাশে অ্যাশ রঙে দেখাবে
-            if (senderType === 'user') {
-                msg.style.cssText = "background:#ff5722; color:#fff; padding:8px 12px; border-radius:8px; align-self:end; max-width:80%; margin: 5px 0; margin-left: auto;";
-            } else {
-                msg.style.cssText = "background:#e2e8f0; color:#1e293b; padding:8px 12px; border-radius:8px; align-self:start; max-width:80%; margin: 5px 0; margin-right: auto;";
-            }
-
-            const img = document.createElement('img');
-            img.src = e.target.result;
-            img.style.maxWidth = '100%';
-            img.style.borderRadius = '6px';
-            img.style.display = 'block';
-
-            msg.appendChild(img);
-            chatLog.appendChild(msg);
-            
-            // নতুন ছবি আসার পর চ্যাট বক্স অটোমেটিক নিচে স্ক্রল হবে
-            chatLog.scrollTop = chatLog.scrollHeight;
-        }
-        reader.readAsDataURL(file);
-    }
-}
 // প্রত্যেক নতুন ড্রপশিপারের দোকানের জন্য আলাদা ক্রমবর্ধমান লাইভ ট্রাফিক লজিক
 function initEverGrowingTraffic() {
     const visitorElement = document.getElementById('totalVisitorCount');
