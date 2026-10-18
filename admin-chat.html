@@ -541,57 +541,6 @@ onAuthStateChanged(auth, (user) => {
     if (ordersModal.overlay.style.display === 'flex') renderOrdersList();
   }, (err) => console.error('Orders load failed:', err.code));
 });
-
-// =====================================================================
-//  CUSTOMER PAGE (actions.js) — অ্যাডমিনের পাঠানো অর্ডার দেখানো ও কনফার্ম করা
-//
-//  ধাপ ১: actions.js এর উপরের database import লাইনে শুধু  onValue  যোগ করুন:
-//
-//  import { getDatabase, ref, runTransaction, set, push, update, onChildAdded, onValue } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js";
-//
-//  ধাপ ২: নিচের পুরো কোড actions.js ফাইলের একদম শেষে পেস্ট করুন।
-//  (এটা পুরোনো confirmAssignedOrder এর জায়গা নেবে, কারণ এটা ফাইলের শেষে বসছে)
-// =====================================================================
-
-const orderAuthRef = getAuth();
-const orderDbRef = getDatabase();
-let stopAssignedOrders = null;
-
-onAuthStateChanged(orderAuthRef, (user) => {
-  if (stopAssignedOrders) { stopAssignedOrders(); stopAssignedOrders = null; }
-  userAssignedOrders = [];
-  updateOrderInterface();
-  if (!user) return;
-
-  stopAssignedOrders = onValue(
-    ref(orderDbRef, 'assignedOrders/' + user.uid),
-    (snap) => {
-      const list = [];
-      snap.forEach((c) => { list.push({ ...(c.val() || {}), _key: c.key }); });
-      list.sort((a, b) => (b.time || 0) - (a.time || 0));
-      userAssignedOrders = list;
-      updateOrderInterface();
-    },
-    (err) => console.error('Assigned orders load failed:', err.code)
-  );
-});
-
-// Confirm Purchase: শুধু status বদলায়, ব্যালান্স কাটে না (পণ্য হাতে পেয়ে টাকা দেবে)
-window.confirmAssignedOrder = async function (index) {
-  const item = userAssignedOrders[index];
-  const user = orderAuthRef.currentUser;
-  if (!item || !user || !item._key || item.status !== 'Pending') return;
-  if (!confirm('Confirm this order? You will pay after you receive the product.')) return;
-  try {
-    await update(ref(orderDbRef, 'assignedOrders/' + user.uid + '/' + item._key), {
-      status: 'Confirmed',
-      confirmedAt: Date.now()
-    });
-  } catch (e) {
-    console.error('Confirm failed:', e);
-    alert('Could not confirm the order. Please try again.');
-  }
-};
 </script>
 </body>
 </html>
