@@ -292,6 +292,57 @@ let chatListener = null;
                 reader.readAsDataURL(file);
             }
         }
+// ==========================================
+// ২. স্মার্ট অর্ডার পুশ ইঞ্জিন জাভাস্ক্রিপ্ট কোড
+// ==========================================
+
+// পেজ লোড হওয়ার সাথে সাথে ড্রপডাউন লিস্টে আপনার ৫৪টি প্রোডাক্ট দেখানোর ফাংশন
+function populateAdminDropdown() {
+    const selectElement = document.getElementById('adminProductSelect');
+    // যদি HTML উপাদানটি না থাকে অথবা productsData অ্যারে খুঁজে না পায় তবে রিটার্ন করবে
+    if (!selectElement || typeof productsData === 'undefined') return;
+
+    // ড্রপডাউনটি আগে খালি করে নেওয়া
+    selectElement.innerHTML = '<option value="">-- Choose a Product to Order --</option>';
+
+    // productsData অ্যারে থেকে একটি একটি করে প্রোডাক্ট নিয়ে ড্রপডাউনে অপশন যোগ করা
+    productsData.forEach(prod => {
+        const option = document.createElement('option');
+        option.value = prod.id;
+        option.textContent = `[ID: ${prod.id}] ${prod.title} - $${prod.originalPrice}`;
+        selectElement.appendChild(option);
+    });
+}
+
+// অ্যাডমিন যখন "Force Dispatch Order" বাটনে ক্লিক করবেন
+function adminPushOrder() {
+    const selectElement = document.getElementById('adminProductSelect');
+    const selectedId = parseInt(selectElement.value);
+
+    if (!selectedId) {
+        alert("দয়া করে ড্রপডাউন থেকে একটি প্রোডাক্ট সিলেক্ট করুন!");
+        return;
+    }
+
+    // অ্যারে থেকে সিলেক্ট করা প্রোডাক্টের সম্পূর্ণ অবজেক্ট খুঁজে বের করা
+    const selectedProduct = productsData.find(prod => prod.id === selectedId);
+
+    if (selectedProduct) {
+        // আপনার ফাইলের 'database' ভেরিয়েবল ব্যবহার করে ফায়ারবেসে ডেটা সেট করা
+        // এর ফলে গ্রাহকের প্যানেলে এই প্রোডাক্টটি লাইভ বা রিয়েল-টাইমে ভেসে উঠবে
+        database.ref('current_pushed_products').set(selectedProduct)
+        .then(() => {
+            alert("সফলভাবে প্রোডাক্টটি গ্রাহকের প্যানেলে পুশ করা হয়েছে!");
+        })
+        .catch((error) => {
+            console.error("Firebase Sync Error:", error);
+            alert("ফায়ারবেসে ডেটা পাঠাতে সমস্যা হয়েছে। কনসোল চেক করুন।");
+        });
+    }
+}
+
+// এইচটিএমএল ডম (DOM) পুরোপুরি লোড শেষ হলে ড্রপডাউন ফাংশনটি চালু করার নির্দেশ
+document.addEventListener("DOMContentLoaded", populateAdminDropdown);
     </script>
 </body>
 </html>
