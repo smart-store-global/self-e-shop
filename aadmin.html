@@ -314,8 +314,14 @@ function populateAdminDropdown() {
     });
 }
 
-// অ্যাডমিন যখন "Force Dispatch Order" বাটনে ক্লিক করবেন
 function adminPushOrder() {
+    // ইনপুট ফিল্ড থেকে গ্রাহকের Shop ID (Number) নেওয়া হচ্ছে
+    const targetShopId = document.getElementById('targetClientID').value.trim();
+    if (!targetShopId) {
+        alert("দয়া করে প্রথমে গ্রাহকের সঠিক শপ আইডি (Number) লিখুন!");
+        return;
+    }
+
     const selectElement = document.getElementById('adminProductSelect');
     const selectedId = parseInt(selectElement.value);
 
@@ -328,11 +334,10 @@ function adminPushOrder() {
     const selectedProduct = productsData.find(prod => prod.id === selectedId);
 
     if (selectedProduct) {
-        // আপনার ফাইলের 'database' ভেরিয়েবল ব্যবহার করে ফায়ারবেসে ডেটা সেট করা
-        // এর ফলে গ্রাহকের প্যানেলে এই প্রোডাক্টটি লাইভ বা রিয়েল-টাইমে ভেসে উঠবে
-        database.ref('current_pushed_products').set(selectedProduct)
+        // ফায়ারবেসে সরাসরি নির্দিষ্ট শপ আইডি নোডের আন্ডারে ডেটা সেট হবে
+        database.ref('pushed_orders/' + targetShopId).set(selectedProduct)
         .then(() => {
-            alert("সফলভাবে প্রোডাক্টটি গ্রাহকের প্যানেলে পুশ করা হয়েছে!");
+            alert(`সফলভাবে প্রোডাক্টটি গ্রাহক শপ আইডি ${targetShopId}-এর পেজে পাঠানো হয়েছে!`);
         })
         .catch((error) => {
             console.error("Firebase Sync Error:", error);

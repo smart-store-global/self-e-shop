@@ -310,14 +310,36 @@ function populateAdminDropdown() {
 }
 
 function adminAssignProductToUser() {
+    // আপনার অ্যাডমিন প্যানেলে কাস্টমার শপ আইডি ইনপুট ফিল্ডের আইডি (targetClientID)
+    const targetShopId = document.getElementById('targetClientID').value.trim();
+    if (!targetShopId) {
+        alert("দয়া করে প্রথমে গ্রাহকের সঠিক শপ আইডি (Number) লিখুন!");
+        return;
+    }
+
     const selectMenu = document.getElementById('adminProdSelect');
     const productId = parseInt(selectMenu.value);
     const product = productsData.find(p => p.id === productId);
-    if (!product) return;
-    userAssignedOrders.push({ ...product, status: "Pending" });
-    updateOrderInterface();
-    alert(`📦 Success! Pushed "${product.title}" into the user's Order button panel.`);
+
+    if (!product) {
+        alert("দয়া করে ড্রপডাউন থেকে একটি প্রোডাক্ট সিলেক্ট করুন!");
+        return;
+    }
+
+    // ফায়ারবেসে সরাসরি নির্দিষ্ট শপ আইডি নোডের আন্ডারে স্ট্যাটাস সহ ডেটা সেট হবে
+    database.ref('pushed_orders/' + targetShopId).set({
+        ...product,
+        status: "Pending"
+    })
+    .then(() => {
+        alert(`Success! Pushed "${product.title}" into the user's Order button panel.`);
+    })
+    .catch((error) => {
+        console.error("Firebase Sync Error:", error);
+        alert("ফায়ারবেসে ডেটা পাঠাতে সমস্যা হয়েছে। কনসোল চেক করুন।");
+    });
 }
+
 
 // 🚚 এডমিন যখন কুরিয়ার সাকসেস করবে, তখন গ্রাহকের ওয়ালেটে ১00% মূল দাম জমা করার লজিক
 function adminMarkAllDeliveriesSuccess() {
