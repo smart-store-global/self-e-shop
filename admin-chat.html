@@ -43,6 +43,18 @@
   <div id="login-error"></div>
 </div>
 
+<div id="id-bar" style="padding:10px 12px; background:#fff; border-bottom:1px solid #e2e8f0; display:flex; gap:8px; align-items:center;">
+  <b style="white-space:nowrap;">গ্রাহক আইডি:</b>
+  <div style="position:relative; flex:1; max-width:460px;">
+    <input id="customerIdInput" type="text" autocomplete="off"
+           placeholder="ক্লিক করে লিস্ট দেখুন, অথবা কাস্টমার আইডি/ইমেইল লিখুন"
+           style="width:100%; padding:8px; box-sizing:border-box;">
+    <div id="customer-dropdown"
+         style="display:none; position:absolute; top:100%; left:0; right:0; max-height:260px; overflow:auto; background:#fff; border:1px solid #cbd5e1; border-radius:0 0 6px 6px; z-index:100; box-shadow:0 4px 10px rgba(0,0,0,.1);"></div>
+  </div>
+  <button id="id-go-btn" style="background:#ff5722; color:#fff; border:none; padding:8px 14px; border-radius:4px; cursor:pointer;">Open</button>
+</div>
+
 <div id="panel">
   <div id="chat-list">
     <h3>All Chats <button id="logout-btn">Logout</button></h3>
@@ -50,6 +62,23 @@
   </div>
   <div id="chat-main">
     <div id="chat-title">Select a chat</div>
+  <!-- এখানে অর্ডার বার বসান -->
+  <div id="order-bar" style="display:none; padding:8px 12px; background:#fff; border-bottom:1px solid #e2e8f0; gap:8px; align-items:center;">
+    <select id="adminProductSelect" style="flex:1; padding:6px;">
+      <option value="">-- Choose a Product to Order --</option>
+    </select>
+    <button onclick="adminPushOrder()" style="background:#ff5722; color:#fff; border:none; padding:7px 12px; border-radius:4px; cursor:pointer;">
+      Force Dispatch Order
+    </button>
+  </div>
+  <div id="messages"></div>
+  <div id="reply-bar">
+    <input type="file" id="adminFile" accept="image/*" style="display:none;">
+    <button class="attach" id="attach-btn">📎</button>
+    <input type="text" id="adminReplyMessage" placeholder="Type a reply...">
+    <button class="send" id="send-btn">Send</button>
+  </div>
+</div>
     <div id="messages"></div>
     <div id="reply-bar">
       <input type="file" id="adminFile" accept="image/*" style="display:none;">
@@ -61,197 +90,333 @@
 </div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
-import { getDatabase, ref, push, update, onValue, onChildAdded } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js";
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
+  import { getDatabase, ref, push, update, onValue, onChildAdded, serverTimestamp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js";
+  import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
+  import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-storage.js";
 
-const ADMIN_UID = "rCQcxmCJKoMHdQRg04qABNGRM2o1";
+  // ===== Firebase Console > Project settings থেকে আসল মান বসান =====
+  const firebaseConfig = {
+    apiKey: "AIzaSyBdpr3NYTRJGYKq7nL1yGc1XMW55p4nqko",
+    authDomain: "self-e-shop-841f4.firebaseapp.com",
+    databaseURL: "https://self-e-shop-841f4-default-rtdb.firebaseio.com",
+    projectId: "self-e-shop-841f4",
+    storageBucket: "self-e-shop-841f4.firebasestorage.app",
+    appId: "1:418069524935:web:2ce981897086b27a88e9e2",
+  };
 
-const firebaseConfig = {
-  apiKey: "AIzaSyBdpr3NYTRJGYKq7nL1yGc1XMW55p4nqko",
-  authDomain: "self-e-shop-841f4.firebaseapp.com",
-  databaseURL: "https://self-e-shop-841f4-default-rtdb.firebaseio.com",
-  projectId: "self-e-shop-841f4",
-  storageBucket: "self-e-shop-841f4.firebasestorage.app",
-  messagingSenderId: "418069524935",
-  appId: "1:418069524935:web:2ce981897086b27a88e9e2"
-};
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const auth = getAuth(app);
+  const storage = getStorage(app);
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getDatabase(app);
+  // ===== ভ্যারিয়েবল (সবার উপরে) =====
+  let selectedClientId = null;   // নির্বাচিত গ্রাহকের Firebase uid
+  let chatListener = null;
+  let chatsCache = {};
+  let listStarted = false;
 
-const $ = (id) => document.getElementById(id);
-let currentChat = null;
-let stopMessages = null;
-let stopList = null;
+  const productsData = [
+    { id: 1, title: "Product One", inStock: true },
+    { id: 2, title: "Product Two", inStock: false }
+    // আপনার প্রোডাক্টগুলো এখানে দিন
+  ];
 
-let audioCtx = null;
-document.addEventListener('click', () => {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (audioCtx.state === 'suspended') audioCtx.resume();
-  if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
-});
+  const $ = (id) => document.getElementById(id);
 
-function beep() {
-  if (!audioCtx) return;
-  const osc = audioCtx.createOscillator();
-  const gain = audioCtx.createGain();
-  osc.type = 'sine';
-  osc.frequency.value = 880;
-  gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
-  osc.connect(gain);
-  gain.connect(audioCtx.destination);
-  osc.start();
-  osc.stop(audioCtx.currentTime + 0.4);
-}
-
-function notifyNewMessage(name, text) {
-  beep();
-  if ('Notification' in window && Notification.permission === 'granted' && document.hidden) {
-    new Notification('New message from ' + name, { body: text });
+  // গ্রাহকের তথ্য থেকে দেখানোর নাম (কাস্টমার আইডি + ইমেইল)
+  function labelOf(uid) {
+    const info = (chatsCache[uid] && chatsCache[uid].info) || {};
+    return (info.shopId ? "#" + info.shopId + " | " : "") + (info.email || uid);
   }
-}
 
-// ---------- Login ----------
-$('login-btn').onclick = async () => {
-  $('login-error').textContent = '';
-  try {
-    await signInWithEmailAndPassword(auth, $('adm-email').value.trim(), $('adm-pass').value);
-  } catch (e) {
-    $('login-error').textContent = 'Login failed';
-    console.error(e);
+  // ===== প্রোডাক্ট সিলেক্ট (শুধু স্টকে থাকাগুলো) =====
+  function loadProductSelect() {
+    const sel = $("adminProductSelect");
+    sel.innerHTML = '<option value="">-- Choose a Product to Order --</option>';
+    productsData.filter(p => p.inStock).forEach(p => {
+      const opt = document.createElement("option");
+      opt.value = p.id;
+      opt.textContent = p.title;
+      sel.appendChild(opt);
+    });
   }
-};
-$('adm-pass').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('login-btn').click(); });
-$('logout-btn').onclick = () => signOut(auth);
+  loadProductSelect();
 
-onAuthStateChanged(auth, (user) => {
-  if (stopList) { stopList(); stopList = null; }
-  if (stopMessages) { stopMessages(); stopMessages = null; }
-  currentChat = null;
-  if (user && user.uid === ADMIN_UID) {
-    $('login-box').style.display = 'none';
-    $('panel').style.display = 'flex';
-    loadChatList();
-  } else {
-    $('panel').style.display = 'none';
-    $('login-box').style.display = 'flex';
-    if (user) {
-      $('login-error').textContent = 'Not an admin account';
-      signOut(auth);
-    }
+  // ===== বাম পাশের গ্রাহক তালিকা =====
+  function renderChatList() {
+    const list = $("list-items");
+    list.innerHTML = "";
+    Object.keys(chatsCache).forEach((uid) => {
+      const info = chatsCache[uid] && chatsCache[uid].info;
+      if (!info) return;
+
+      const item = document.createElement("div");
+      item.style.cssText = "padding:10px 12px; border-bottom:1px solid #eee; cursor:pointer;";
+      if (uid === selectedClientId) item.style.background = "#fff3ee";
+
+      const name = document.createElement("div");
+      name.style.fontWeight = "bold";
+      name.textContent = labelOf(uid);
+      const last = document.createElement("div");
+      last.style.cssText = "font-size:12px; color:#64748b;";
+      last.textContent = info.lastMessage || "";
+
+      item.append(name, last);
+      item.onclick = () => openChat(uid);
+      list.appendChild(item);
+    });
   }
-});
 
-// ---------- Chat list ----------
-function loadChatList() {
-  const prevTimes = {};
-  let firstLoad = true;
-  stopList = onValue(ref(db, 'chatMeta'), (snap) => {
-    const box = $('list-items');
-    box.innerHTML = '';
-    const items = [];
-    snap.forEach((c) => { items.push({ id: c.key, meta: c.val() || {} }); });
-    items.sort((a, b) => (b.meta.lastTime || 0) - (a.meta.lastTime || 0));
+  function startChatList() {
+    if (listStarted) return;
+    listStarted = true;
+    onValue(ref(db, "chats"), (snap) => {
+      chatsCache = snap.val() || {};
+      renderChatList();
+      if ($("customer-dropdown").style.display === "block") renderDropdown($("customerIdInput").value);
+    }, (err) => {
+      console.error(err);
+      alert("চ্যাট তালিকা পড়া যায়নি: " + err.message);
+    });
+  }
 
-    let unread = 0;
-    items.forEach(({ id, meta }) => {
-      if (meta.unreadAdmin) unread++;
-      const isNew = !firstLoad && meta.unreadAdmin && (meta.lastTime || 0) > (prevTimes[id] || 0);
-      if (isNew) notifyNewMessage(meta.name || id.slice(0, 8), meta.lastMessage || '');
-      prevTimes[id] = meta.lastTime || 0;
+  // ===== গ্রাহক আইডি ঘর + ড্রপডাউন =====
+  function renderDropdown(filterText) {
+    const box = $("customer-dropdown");
+    const q = (filterText || "").trim().toLowerCase().replace("#", "");
+    box.innerHTML = "";
 
-      const el = document.createElement('div');
-      el.className = 'chat-item' + (meta.unreadAdmin ? ' unread' : '') + (id === currentChat ? ' active' : '');
-      el.innerHTML = '<div class="name"></div><div class="last"></div>';
-      el.querySelector('.name').textContent = meta.name || id.slice(0, 8);
-      el.querySelector('.last').textContent = meta.lastMessage || '';
-      el.onclick = () => openChat(id, meta.name || id.slice(0, 8));
-      box.appendChild(el);
+    const uids = Object.keys(chatsCache).filter((uid) => {
+      const info = (chatsCache[uid] && chatsCache[uid].info) || {};
+      return !q
+        || uid.toLowerCase().includes(q)
+        || (info.email || "").toLowerCase().includes(q)
+        || String(info.shopId || "").includes(q);
     });
 
-    document.title = unread > 0 ? '(' + unread + ') Admin Chat Panel' : 'Admin Chat Panel';
-    firstLoad = false;
-  }, (err) => console.error('Chat list load failed:', err.code));
-}
-
-// ---------- Open chat ----------
-function openChat(id, name) {
-  if (stopMessages) stopMessages();
-  currentChat = id;
-  $('chat-title').textContent = name;
-  $('reply-bar').style.display = 'flex';
-  $('messages').innerHTML = '';
-  update(ref(db, 'chatMeta/' + id), { unreadAdmin: false });
-  stopMessages = onChildAdded(ref(db, 'chats/' + id + '/messages'), (snap) => {
-    const m = snap.val();
-    const b = document.createElement('div');
-    b.className = 'bubble ' + (m.sender === 'admin' ? 'admin' : 'user');
-    if (m.image && String(m.image).startsWith('data:image/')) {
-      const img = document.createElement('img');
-      img.src = m.image;
-      b.appendChild(img);
-    } else {
-      b.textContent = m.text || '';
+    if (uids.length === 0) {
+      const empty = document.createElement("div");
+      empty.style.cssText = "padding:10px; color:#64748b; font-size:13px;";
+      empty.textContent = q ? "লিস্টে নেই। পুরো আইডি লিখে Enter চাপুন।" : "কোনো গ্রাহক নেই";
+      box.appendChild(empty);
     }
-    $('messages').appendChild(b);
-    $('messages').scrollTop = $('messages').scrollHeight;
-    if (m.sender === 'user' && !document.hidden) {
-      update(ref(db, 'chatMeta/' + id), { unreadAdmin: false });
-    }
-  });
-}
 
-// ---------- Send reply ----------
-async function sendAdmin(data, preview) {
-  if (!currentChat) return;
-  const now = Date.now();
-  try {
-    await push(ref(db, 'chats/' + currentChat + '/messages'), { sender: 'admin', time: now, ...data });
-    await update(ref(db, 'chatMeta/' + currentChat), { lastMessage: 'You: ' + preview, lastTime: now, unreadAdmin: false });
-  } catch (e) {
-    console.error('Send failed:', e);
+    uids.forEach((uid) => {
+      const info = (chatsCache[uid] && chatsCache[uid].info) || {};
+      const row = document.createElement("div");
+      row.style.cssText = "padding:8px 10px; border-bottom:1px solid #f1f5f9; cursor:pointer;";
+      row.onmouseenter = () => row.style.background = "#f8fafc";
+      row.onmouseleave = () => row.style.background = "";
+
+      const top = document.createElement("div");
+      top.style.fontWeight = "bold";
+      top.textContent = (info.shopId ? "#" + info.shopId + "  |  " : "") + (info.email || "(ইমেইল নেই)");
+      const sub = document.createElement("div");
+      sub.style.cssText = "font-size:11px; color:#64748b; word-break:break-all;";
+      sub.textContent = "uid: " + uid;
+
+      row.append(top, sub);
+      row.onmousedown = (e) => { e.preventDefault(); openChat(uid); };
+      box.appendChild(row);
+    });
+
+    box.style.display = "block";
   }
-}
 
-$('send-btn').onclick = () => {
-  const text = $('adminReplyMessage').value.trim();
-  if (!text) return;
-  $('adminReplyMessage').value = '';
-  sendAdmin({ text: text }, text);
-};
-$('adminReplyMessage').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('send-btn').click(); });
+  function hideDropdown() { $("customer-dropdown").style.display = "none"; }
 
-// ---------- Send image ----------
-function compressImage(file, maxSize = 800, quality = 0.7) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = reject;
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onerror = reject;
-      img.onload = () => {
-        const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
-        const c = document.createElement('canvas');
-        c.width = img.width * scale; c.height = img.height * scale;
-        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-        resolve(c.toDataURL('image/jpeg', quality));
-      };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
+  // ঘরে লেখা কাস্টমার আইডি / ইমেইল / uid দিয়ে চ্যাট খোলা
+  function openFromInput() {
+    const raw = $("customerIdInput").value.trim();
+    if (!raw) return alert("কাস্টমার আইডি বা ইমেইল লিখুন, অথবা লিস্ট থেকে বাছাই করুন");
+    if (!auth.currentUser) return alert("আগে লগইন করুন");
+
+    const val = raw.replace("#", "");
+    const low = val.toLowerCase();
+
+    const found = Object.keys(chatsCache).find((uid) => {
+      const info = (chatsCache[uid] && chatsCache[uid].info) || {};
+      return uid === val
+        || String(info.shopId || "") === val
+        || (info.email || "").toLowerCase() === low;
+    });
+
+    if (found) return openChat(found);
+
+    // লিস্টে নেই, তবে পুরো uid-র মতো দেখালে সরাসরি খুলবে
+    if (/^[A-Za-z0-9_-]{20,}$/.test(val)) return openChat(val);
+
+    alert("এই আইডি বা ইমেইলের কোনো গ্রাহক পাওয়া যায়নি");
+  }
+
+  const idInput = $("customerIdInput");
+  idInput.addEventListener("focus", () => renderDropdown(idInput.value));
+  idInput.addEventListener("click", () => renderDropdown(idInput.value));
+  idInput.addEventListener("input", () => renderDropdown(idInput.value));
+  idInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { hideDropdown(); openFromInput(); }
+    if (e.key === "Escape") hideDropdown();
   });
-}
-$('attach-btn').onclick = () => $('adminFile').click();
-$('adminFile').addEventListener('change', async (e) => {
-  const file = e.target.files[0];
-  e.target.value = '';
-  if (!file) return;
-  try { sendAdmin({ image: await compressImage(file) }, '📷 Photo'); }
-  catch (err) { console.error('Image read failed:', err); }
-});
+  idInput.addEventListener("blur", hideDropdown);
+  $("id-go-btn").onclick = () => { hideDropdown(); openFromInput(); };
+
+  // ===== চ্যাট খোলা (এখানেই selectedClientId বসে) =====
+  function openChat(uid) {
+    selectedClientId = uid;
+    const label = labelOf(uid);
+    $("customerIdInput").value = label;
+    hideDropdown();
+    $("chat-title").textContent = label;
+    $("order-bar").style.display = "flex";
+    $("messages").innerHTML = "";
+
+    if (chatListener) chatListener();   // আগের চ্যাটের শ্রোতা বন্ধ
+    chatListener = onChildAdded(ref(db, "chats/" + uid + "/messages"), (snap) => {
+      addMessageBubble(snap.val());
+    });
+    renderChatList();
+  }
+
+  function addMessageBubble(m) {
+    const box = $("messages");
+    const mine = m.sender === "admin";
+
+    const row = document.createElement("div");
+    row.style.cssText = "display:flex; margin:6px 10px; justify-content:" + (mine ? "flex-end" : "flex-start");
+
+    const bubble = document.createElement("div");
+    bubble.style.cssText = "max-width:70%; padding:8px 12px; border-radius:10px; background:" + (mine ? "#ff5722" : "#fff") + "; color:" + (mine ? "#fff" : "#000") + ";";
+
+    if (m.imageUrl) {
+      const img = document.createElement("img");
+      img.src = m.imageUrl;
+      img.style.cssText = "max-width:220px; border-radius:6px; display:block;";
+      bubble.appendChild(img);
+    }
+    if (m.text) {
+      const t = document.createElement("div");
+      t.textContent = m.text;
+      bubble.appendChild(t);
+    }
+    row.appendChild(bubble);
+    box.appendChild(row);
+    box.scrollTop = box.scrollHeight;
+  }
+
+  // ===== অ্যাডমিন মেসেজ পাঠানো =====
+  async function sendAdminMessage(imageUrl) {
+    if (!selectedClientId) return alert("আগে উপরের ঘর থেকে একজন গ্রাহক বাছাই করুন");
+    if (!auth.currentUser) return alert("আগে লগইন করুন");
+
+    const input = $("adminReplyMessage");
+    const text = input.value.trim();
+    if (!text && !imageUrl) return;
+    input.value = "";
+
+    try {
+      await push(ref(db, "chats/" + selectedClientId + "/messages"), {
+        text: text || "",
+        imageUrl: imageUrl || "",
+        sender: "admin",
+        time: serverTimestamp()
+      });
+      await update(ref(db, "chats/" + selectedClientId + "/info"), {
+        lastMessage: "You: " + (text || "📷 ছবি"),
+        lastTime: serverTimestamp()
+      });
+    } catch (e) {
+      console.error(e);
+      alert("মেসেজ যায়নি: " + e.message);
+    }
+  }
+  $("send-btn").onclick = () => sendAdminMessage();
+  $("adminReplyMessage").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") sendAdminMessage();
+  });
+
+  // ===== ছবি পাঠানো =====
+  $("attach-btn").onclick = () => $("adminFile").click();
+  $("adminFile").onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!selectedClientId) {
+      alert("আগে উপরের ঘর থেকে একজন গ্রাহক বাছাই করুন");
+      e.target.value = "";
+      return;
+    }
+    try {
+      const path = "chatImages/" + selectedClientId + "/" + Date.now() + "_" + file.name;
+      const snap = await uploadBytes(sRef(storage, path), file);
+      const url = await getDownloadURL(snap.ref);
+      await sendAdminMessage(url);
+    } catch (err) {
+      console.error(err);
+      alert("ছবি যায়নি: " + err.message);
+    }
+    e.target.value = "";
+  };
+
+  // ===== অর্ডার পাঠানো =====
+  async function adminPushOrder() {
+    const pid = $("adminProductSelect").value;
+    if (!pid) return alert("আগে একটি প্রোডাক্ট বাছাই করুন");
+    if (!selectedClientId) return alert("আগে উপরের ঘর থেকে একজন গ্রাহক বাছাই করুন");
+    if (!auth.currentUser) return alert("আগে লগইন করুন");
+
+    const p = productsData.find(x => String(x.id) === String(pid));
+    try {
+      await push(ref(db, "orders/" + selectedClientId), {
+        productId: p.id,
+        title: p.title,
+        status: "pending",
+        time: serverTimestamp()
+      });
+      alert("অর্ডার পাঠানো হয়েছে ✅");
+    } catch (e) {
+      console.error(e);
+      alert("এরর: " + e.message);
+    }
+  }
+  window.adminPushOrder = adminPushOrder;
+
+  // ===== লগইন বক্স =====
+  function showLoginBox() {
+    if ($("admin-login-overlay")) return;
+    const ov = document.createElement("div");
+    ov.id = "admin-login-overlay";
+    ov.style.cssText = "position:fixed; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; z-index:9999;";
+    ov.innerHTML =
+      '<div style="background:#fff; padding:24px; border-radius:8px; width:300px; display:flex; flex-direction:column; gap:10px;">' +
+      '<h3 style="margin:0;">Admin Login</h3>' +
+      '<input id="adm-email" type="email" placeholder="Email" style="padding:8px;">' +
+      '<input id="adm-pass" type="password" placeholder="Password" style="padding:8px;">' +
+      '<button id="adm-login-btn" style="background:#ff5722; color:#fff; border:none; padding:9px; border-radius:4px; cursor:pointer;">Login</button>' +
+      '<div id="adm-err" style="color:#c00; font-size:13px;"></div>' +
+      '</div>';
+    document.body.appendChild(ov);
+
+    $("adm-login-btn").onclick = async () => {
+      try {
+        await signInWithEmailAndPassword(auth, $("adm-email").value.trim(), $("adm-pass").value);
+      } catch (e) {
+        $("adm-err").textContent = "লগইন হয়নি: " + e.message;
+      }
+    };
+  }
+
+  $("logout-btn").onclick = () => signOut(auth);
+
+  onAuthStateChanged(auth, (user) => {
+    console.log("অ্যাডমিন:", user ? user.email + " | uid: " + user.uid : "লগইন নেই");
+    if (user) {
+      const ov = $("admin-login-overlay");
+      if (ov) ov.remove();
+      startChatList();
+    } else {
+      showLoginBox();
+    }
+  });
 </script>
 </body>
 </html>
