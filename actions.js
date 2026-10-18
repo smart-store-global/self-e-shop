@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-analytics.js";
-import { getDatabase, ref, runTransaction, set, push, update, onChildAdded } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js";
+  import { getDatabase, ref, runTransaction, set, push, update, onChildAdded, onValue } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js";
 import { getAuth, createUserWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
 const firebaseConfig = {
   apiKey: "AIzaSyBdpr3NYTRJGYKq7nL1yGc1XMW55p4nqko",

@@ -252,6 +252,346 @@ $('adminFile').addEventListener('change', async (e) => {
   try { sendAdmin({ image: await compressImage(file) }, '📷 Photo'); }
   catch (err) { console.error('Image read failed:', err); }
 });
+
+// =====================================================================
+//  ORDER PUSH + ORDER LIST  
+// =====================================================================
+
+// স্টকের তালিকা: ৩৭ নম্বর বা তার পরের প্রডাক্ট থাকলে নিচে একই ধাঁচে লাইন যোগ করুন
+const ORDER_PRODUCTS = [
+  { id: 1,  title: "VMAXPRO Mobile Phone High Performance", originalPrice: 270.00, img: "vmaxpro1.jpg", free: false },
+  { id: 2,  title: "VMAX PRO Mobile Phone Multiple Colors", originalPrice: 270.00, img: "vmaxpro2.jpg", free: false },
+  { id: 3,  title: "8-foot Medium-sized Table Tennis Table Foldable", originalPrice: 203.92, img: "pingpong.jpg", free: true },
+  { id: 4,  title: "925 Silver Set Moissani Hip-hop Personalized Necklace", originalPrice: 238.90, img: "necklace.jpg", free: false },
+  { id: 5,  title: "133 Integrated Computer Voice Assistant CM4", originalPrice: 249.34, img: "computer.jpg", free: false },
+  { id: 6,  title: "Indoor Playground 7-in-1 Jungle Gym Playset", originalPrice: 188.74, img: "playground.jpg", free: true },
+  { id: 7,  title: "ML100Bi Photography Fill Light High Power King", originalPrice: 220.43, img: "filllight.jpg", free: false },
+  { id: 8,  title: "Brand New Home Treadmill 2.5HP Silent Folding", originalPrice: 177.65, img: "treadmill.jpg", free: false },
+  { id: 9,  title: "300 Pound Hydraulic Motorcycle Scissor Jack Lift", originalPrice: 175.74, img: "jack.jpg", free: true },
+  { id: 12, title: "Applicable To MACBOOK A1398 2013-2015 Display", originalPrice: 227.00, img: "macbook.jpg", free: false },
+  { id: 13, title: "Large Hole Fishnet Artificial Scalp Seamless Wig", originalPrice: 223.88, img: "wig1.jpg", free: false },
+  { id: 14, title: "Basswood Cello, Black Professional Instrument", originalPrice: 142.52, img: "cello.jpg", free: true },
+  { id: 15, title: "Real Human Hair Transparent Lace Full-head Wig", originalPrice: 222.01, img: "wig2.jpg", free: false },
+  { id: 16, title: "Lace Wig Can Be Dyed And Ironed Full Head Cover", originalPrice: 238.80, img: "wig3.jpg", free: false },
+  { id: 17, title: "70mai A800S-1 4K Dash Cam Car DVR 24H Support", originalPrice: 140.01, img: "dashcam1.jpg", free: false },
+  { id: 18, title: "Big Screen Smart Watch Ultra Series", originalPrice: 135.60, img: "watch.jpg", free: false },
+  { id: 19, title: "Creative Simple Portable Plastic Civilian Binoculars", originalPrice: 135.13, img: "binoculars.jpg", free: false },
+  { id: 20, title: "Golden Bright Surface Bandage Design Tight Waist", originalPrice: 134.14, img: "dress1.jpg", free: false },
+  { id: 21, title: "Torch Suitable For Motorcycle Sports Car S1000RR", originalPrice: 358.00, img: "torch.jpg", free: false },
+  { id: 22, title: "Cozinhar Filme de carro completo gratuito", originalPrice: 149.50, img: "film.jpg", free: false },
+  { id: 23, title: "Metal Tool Storage Cabinets Heavy Duty", originalPrice: 127.94, img: "cabinet2.jpg", free: true },
+  { id: 24, title: "European And American Ladies Color Human Wigs", originalPrice: 126.49, img: "wig4.jpg", free: false },
+  { id: 25, title: "Digital Singing Dedicated Recording Sound Card", originalPrice: 600.75, img: "soundcard.jpg", free: false },
+  { id: 26, title: "Hand-rubbed Vintage Business Bag", originalPrice: 441.45, img: "bag.jpg", free: false },
+  { id: 28, title: "Mini Screenless TV Touch Home Portable Smartphone Projector", originalPrice: 395.64, img: "projector.jpg", free: false },
+  { id: 29, title: "Aluminum Alloy Soft Tail Oil Brake Damping Mountain Bike", originalPrice: 335.69, img: "bike1.jpg", free: false },
+  { id: 31, title: "Sexy Luxury Shiny Rhinestone Dress Costume", originalPrice: 121.27, img: "dress2.jpg", free: false },
+  { id: 32, title: "70mai A800S True 4K ComIMX415 Dash Cam", originalPrice: 117.43, img: "dashcam2.jpg", free: false },
+  { id: 33, title: "Raspberry PI CM4 Computing Module Board", originalPrice: 159.34, img: "raspberry.jpg", free: false },
+  { id: 34, title: "Pull Rod Golf Bag Male And Female Portable", originalPrice: 111.93, img: "golfbag.jpg", free: false },
+  { id: 35, title: "Double Breasted Coat Wool Atmospheric Field Coat", originalPrice: 109.70, img: "coat.jpg", free: false },
+  { id: 36, title: "Large Intelligent Aromatherapy Machine Air System", originalPrice: 107.90, img: "aroma.jpg", free: false }
+];
+
+// ---------- styles ----------
+const ordStyle = document.createElement('style');
+ordStyle.textContent = `
+.ord-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:999;}
+.ord-box{background:#fff;border-radius:12px;width:min(560px,94vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden;}
+.ord-head{padding:14px 16px;background:#ff5722;color:#fff;font-weight:bold;display:flex;justify-content:space-between;align-items:center;gap:8px;}
+.ord-head button{background:#fff;color:#ff5722;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;}
+.ord-body{padding:12px 16px;overflow-y:auto;flex:1;}
+.ord-search{width:100%;padding:9px;border:1px solid #cbd5e1;border-radius:6px;margin-bottom:8px;}
+.ord-row{display:flex;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid #f1f5f9;font-size:13px;}
+.ord-row label{flex:1;cursor:pointer;}
+.ord-price{color:#ff5722;font-weight:bold;white-space:nowrap;}
+.ord-foot{padding:12px 16px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;gap:8px;}
+.ord-btn{background:#ff5722;color:#fff;border:none;padding:9px 16px;border-radius:6px;cursor:pointer;font-weight:bold;}
+.ord-btn:disabled{opacity:.6;cursor:default;}
+.ord-btn.small{padding:4px 10px;font-size:12px;}
+.ord-btn.gray{background:#64748b;}
+.ord-status{font-size:12px;font-weight:bold;white-space:nowrap;}
+`;
+document.head.appendChild(ordStyle);
+
+// ---------- small modal helper ----------
+function makeOrderModal() {
+  const overlay = document.createElement('div'); overlay.className = 'ord-overlay';
+  const box = document.createElement('div'); box.className = 'ord-box';
+  const head = document.createElement('div'); head.className = 'ord-head';
+  const title = document.createElement('span');
+  const closeBtn = document.createElement('button'); closeBtn.textContent = '✕';
+  head.append(title, closeBtn);
+  const body = document.createElement('div'); body.className = 'ord-body';
+  const foot = document.createElement('div'); foot.className = 'ord-foot';
+  box.append(head, body, foot);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  const close = () => { overlay.style.display = 'none'; };
+  closeBtn.onclick = close;
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+  return { overlay, title, body, foot, close, open: () => { overlay.style.display = 'flex'; } };
+}
+
+// ---------- 1) Send products to the selected customer ----------
+const productModal = makeOrderModal();
+const selectedProducts = new Set();
+const prodSearch = document.createElement('input');
+prodSearch.className = 'ord-search';
+prodSearch.placeholder = 'Search product name or ID...';
+const prodList = document.createElement('div');
+productModal.body.append(prodSearch, prodList);
+const selCount = document.createElement('span');
+const sendOrderBtn = document.createElement('button');
+sendOrderBtn.className = 'ord-btn';
+sendOrderBtn.textContent = 'Send to customer';
+productModal.foot.append(selCount, sendOrderBtn);
+
+function updateSelCount() { selCount.textContent = selectedProducts.size + ' selected'; }
+
+function renderProductList() {
+  const q = prodSearch.value.trim().toLowerCase();
+  prodList.innerHTML = '';
+  ORDER_PRODUCTS
+    .filter((p) => !q || p.title.toLowerCase().includes(q) || String(p.id) === q)
+    .forEach((p) => {
+      const row = document.createElement('div'); row.className = 'ord-row';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.id = 'ordp-' + p.id; cb.checked = selectedProducts.has(p.id);
+      cb.onchange = () => {
+        if (cb.checked) selectedProducts.add(p.id); else selectedProducts.delete(p.id);
+        updateSelCount();
+      };
+      const lb = document.createElement('label');
+      lb.htmlFor = cb.id;
+      lb.textContent = '#' + p.id + '  ' + p.title + (p.free ? '  (Free)' : '');
+      const pr = document.createElement('span');
+      pr.className = 'ord-price';
+      pr.textContent = '$' + p.originalPrice.toFixed(2);
+      row.append(cb, lb, pr);
+      prodList.appendChild(row);
+    });
+  updateSelCount();
+}
+prodSearch.addEventListener('input', renderProductList);
+
+const orderOpenBtn = document.createElement('button');
+orderOpenBtn.className = 'attach';
+orderOpenBtn.id = 'order-open-btn';
+orderOpenBtn.textContent = '📦 Order';
+$('reply-bar').insertBefore(orderOpenBtn, $('adminReplyMessage'));
+orderOpenBtn.onclick = () => {
+  if (!currentChat) { alert('Select a customer chat first'); return; }
+  selectedProducts.clear();
+  prodSearch.value = '';
+  productModal.title.textContent = 'Send order to: ' + $('chat-title').textContent;
+  renderProductList();
+  productModal.open();
+};
+
+sendOrderBtn.onclick = async () => {
+  if (!currentChat) { alert('Select a customer chat first'); return; }
+  if (selectedProducts.size === 0) { alert('Select at least one product'); return; }
+  const uid = currentChat;
+  const items = ORDER_PRODUCTS.filter((p) => selectedProducts.has(p.id));
+  sendOrderBtn.disabled = true;
+  try {
+    const now = Date.now();
+    const updates = {};
+    items.forEach((p) => {
+      const key = push(ref(db, 'assignedOrders/' + uid)).key;
+      updates['assignedOrders/' + uid + '/' + key] = {
+        id: p.id, title: p.title, originalPrice: p.originalPrice,
+        img: p.img, free: p.free, status: 'Pending', time: now
+      };
+    });
+    const text = '📦 ' + items.length + ' product(s) added to your Order button. Please check and confirm.';
+    const msgKey = push(ref(db, 'chats/' + uid + '/messages')).key;
+    updates['chats/' + uid + '/messages/' + msgKey] = { sender: 'admin', time: now, text: text };
+    updates['chatMeta/' + uid + '/lastMessage'] = 'You: ' + text;
+    updates['chatMeta/' + uid + '/lastTime'] = now;
+    await update(ref(db), updates);
+    selectedProducts.clear();
+    productModal.close();
+    alert('Order sent: ' + items.length + ' product(s)');
+  } catch (e) {
+    console.error('Order send failed:', e);
+    alert('Failed to send order');
+  }
+  sendOrderBtn.disabled = false;
+};
+
+// ---------- 2) Orders list (confirmed -> ship) ----------
+const ordersModal = makeOrderModal();
+ordersModal.title.textContent = 'Orders';
+const ordersBtn = document.createElement('button');
+ordersBtn.textContent = '📋 Orders';
+const logoutRef = $('logout-btn');
+const btnGroup = document.createElement('span');
+btnGroup.style.display = 'flex';
+btnGroup.style.gap = '6px';
+logoutRef.parentNode.insertBefore(btnGroup, logoutRef);
+btnGroup.append(ordersBtn, logoutRef);
+
+let allOrders = {};
+let chatNames = {};
+let stopOrdersWatch = null;
+let stopNamesWatch = null;
+let ordersFirstLoad = true;
+let lastConfirmedCount = 0;
+
+function countConfirmed() {
+  let n = 0;
+  Object.keys(allOrders).forEach((uid) => {
+    Object.values(allOrders[uid] || {}).forEach((o) => { if (o && o.status === 'Confirmed') n++; });
+  });
+  return n;
+}
+
+function refreshOrdersBtn() {
+  const n = countConfirmed();
+  ordersBtn.textContent = '📋 Orders' + (n > 0 ? ' (' + n + ')' : '');
+}
+
+async function setOrderValue(uid, key, value) {
+  try {
+    await update(ref(db), { ['assignedOrders/' + uid + '/' + key]: value });
+  } catch (e) {
+    console.error('Order update failed:', e);
+    alert('Update failed');
+  }
+}
+
+function renderOrdersList() {
+  ordersModal.body.innerHTML = '';
+  ordersModal.foot.innerHTML = '';
+  const rows = [];
+  Object.keys(allOrders).forEach((uid) => {
+    const o = allOrders[uid] || {};
+    Object.keys(o).forEach((k) => rows.push({ uid: uid, key: k, ...o[k] }));
+  });
+  const rank = { Confirmed: 0, Pending: 1, Shipped: 2 };
+  rows.sort((a, b) => ((rank[a.status] ?? 3) - (rank[b.status] ?? 3)) || ((b.time || 0) - (a.time || 0)));
+  if (!rows.length) { ordersModal.body.textContent = 'No orders yet.'; return; }
+
+  rows.forEach((r) => {
+    const row = document.createElement('div'); row.className = 'ord-row';
+    const info = document.createElement('div'); info.style.flex = '1';
+    const t = document.createElement('div');
+    t.style.fontWeight = 'bold';
+    t.textContent = r.title || ('#' + r.id);
+    const s = document.createElement('div');
+    s.style.color = '#64748b'; s.style.fontSize = '12px';
+    const pay = ((r.originalPrice || 0) * 0.70).toFixed(2);
+    s.textContent = (chatNames[r.uid] || r.uid.slice(0, 8)) + '  •  customer pays $' + pay +
+      (r.time ? '  •  ' + new Date(r.time).toLocaleString() : '');
+    info.append(t, s);
+
+    const st = document.createElement('span');
+    st.className = 'ord-status';
+    st.textContent = r.status || '';
+    st.style.color = r.status === 'Confirmed' ? '#16a34a' : (r.status === 'Shipped' ? '#2563eb' : '#94a3b8');
+    row.append(info, st);
+
+    if (r.status === 'Confirmed') {
+      const b = document.createElement('button');
+      b.className = 'ord-btn small'; b.textContent = 'Mark Shipped';
+      b.onclick = () => {
+        update(ref(db), { ['assignedOrders/' + r.uid + '/' + r.key + '/status']: 'Shipped' })
+          .catch((e) => { console.error(e); alert('Update failed'); });
+      };
+      row.appendChild(b);
+    }
+    if (r.status === 'Pending') {
+      const b = document.createElement('button');
+      b.className = 'ord-btn small gray'; b.textContent = 'Remove';
+      b.onclick = () => {
+        if (confirm('Remove this pending order?')) setOrderValue(r.uid, r.key, null);
+      };
+      row.appendChild(b);
+    }
+    ordersModal.body.appendChild(row);
+  });
+}
+
+ordersBtn.onclick = () => { renderOrdersList(); ordersModal.open(); };
+
+onAuthStateChanged(auth, (user) => {
+  if (stopOrdersWatch) { stopOrdersWatch(); stopOrdersWatch = null; }
+  if (stopNamesWatch) { stopNamesWatch(); stopNamesWatch = null; }
+  allOrders = {}; chatNames = {};
+  ordersFirstLoad = true; lastConfirmedCount = 0;
+  refreshOrdersBtn();
+  if (!user || user.uid !== ADMIN_UID) return;
+
+  stopNamesWatch = onValue(ref(db, 'chatMeta'), (snap) => {
+    const n = {};
+    snap.forEach((c) => { n[c.key] = (c.val() || {}).name || c.key.slice(0, 8); });
+    chatNames = n;
+    if (ordersModal.overlay.style.display === 'flex') renderOrdersList();
+  }, (err) => console.error('Names load failed:', err.code));
+
+  stopOrdersWatch = onValue(ref(db, 'assignedOrders'), (snap) => {
+    allOrders = snap.val() || {};
+    const confirmed = countConfirmed();
+    if (!ordersFirstLoad && confirmed > lastConfirmedCount) beep();
+    lastConfirmedCount = confirmed;
+    ordersFirstLoad = false;
+    refreshOrdersBtn();
+    if (ordersModal.overlay.style.display === 'flex') renderOrdersList();
+  }, (err) => console.error('Orders load failed:', err.code));
+});
+
+// =====================================================================
+//  CUSTOMER PAGE (actions.js) — অ্যাডমিনের পাঠানো অর্ডার দেখানো ও কনফার্ম করা
+//
+//  ধাপ ১: actions.js এর উপরের database import লাইনে শুধু  onValue  যোগ করুন:
+//
+//  import { getDatabase, ref, runTransaction, set, push, update, onChildAdded, onValue } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js";
+//
+//  ধাপ ২: নিচের পুরো কোড actions.js ফাইলের একদম শেষে পেস্ট করুন।
+//  (এটা পুরোনো confirmAssignedOrder এর জায়গা নেবে, কারণ এটা ফাইলের শেষে বসছে)
+// =====================================================================
+
+const orderAuthRef = getAuth();
+const orderDbRef = getDatabase();
+let stopAssignedOrders = null;
+
+onAuthStateChanged(orderAuthRef, (user) => {
+  if (stopAssignedOrders) { stopAssignedOrders(); stopAssignedOrders = null; }
+  userAssignedOrders = [];
+  updateOrderInterface();
+  if (!user) return;
+
+  stopAssignedOrders = onValue(
+    ref(orderDbRef, 'assignedOrders/' + user.uid),
+    (snap) => {
+      const list = [];
+      snap.forEach((c) => { list.push({ ...(c.val() || {}), _key: c.key }); });
+      list.sort((a, b) => (b.time || 0) - (a.time || 0));
+      userAssignedOrders = list;
+      updateOrderInterface();
+    },
+    (err) => console.error('Assigned orders load failed:', err.code)
+  );
+});
+
+// Confirm Purchase: শুধু status বদলায়, ব্যালান্স কাটে না (পণ্য হাতে পেয়ে টাকা দেবে)
+window.confirmAssignedOrder = async function (index) {
+  const item = userAssignedOrders[index];
+  const user = orderAuthRef.currentUser;
+  if (!item || !user || !item._key || item.status !== 'Pending') return;
+  if (!confirm('Confirm this order? You will pay after you receive the product.')) return;
+  try {
+    await update(ref(orderDbRef, 'assignedOrders/' + user.uid + '/' + item._key), {
+      status: 'Confirmed',
+      confirmedAt: Date.now()
+    });
+  } catch (e) {
+    console.error('Confirm failed:', e);
+    alert('Could not confirm the order. Please try again.');
+  }
+};
 </script>
 </body>
 </html>
