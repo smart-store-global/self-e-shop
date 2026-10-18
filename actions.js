@@ -409,7 +409,6 @@ document.getElementById('btn-recharge').addEventListener('click', function() { a
 document.getElementById('btn-withdraw').addEventListener('click', function() { alert('⚠️ Action Restricted: Please connect with Customer Service to securely initiate your withdrawal procedure.'); });
 
 /* ================= Customer live chat ================= */
-const db = getDatabase(app);
 let chatId = null;
 let chatUnsub = null;
 let chatListenerStarted = false;
