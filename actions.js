@@ -577,3 +577,51 @@ if (document.readyState === "loading") {
 } else {
     initEverGrowingTraffic();
 }
+
+/* ===== Notification badge on service button ===== */
+let notifUnsub = null;
+let unreadCount = 0;
+
+function seenKey(uid) { return 'chatLastSeen_' + uid; }
+
+function setBadge(n) {
+    unreadCount = n;
+    const btn = document.getElementById('btn-service');
+    if (!btn) return;
+    let badge = document.getElementById('chat-notify-badge');
+    if (n <= 0) { if (badge) badge.remove(); return; }
+    if (!badge) {
+        badge = document.createElement('span');
+        badge.id = 'chat-notify-badge';
+        badge.style.cssText = "background:#e53935; color:#fff; border-radius:999px; min-width:18px; height:18px; padding:0 5px; font-size:11px; font-weight:bold; display:inline-flex; align-items:center; justify-content:center; margin-left:6px; vertical-align:middle;";
+        btn.appendChild(badge);
+    }
+    badge.textContent = n > 9 ? '9+' : String(n);
+}
+
+function startNotifyListener(uid) {
+    if (notifUnsub) { notifUnsub(); notifUnsub = null; }
+    setBadge(0);
+    if (!uid) return;
+    notifUnsub = onChildAdded(ref(db, 'chats/' + uid + '/messages'), (snap) => {
+        const m = snap.val();
+        if (!m || m.sender !== 'admin') return;
+        const modal = document.getElementById('customer-chat-modal');
+        const isOpen = modal && modal.style.display !== 'none';
+        if (isOpen) {
+            localStorage.setItem(seenKey(uid), String(Date.now()));
+            return;
+        }
+        const lastSeen = Number(localStorage.getItem(seenKey(uid)) || 0);
+        if ((m.time || 0) > lastSeen) setBadge(unreadCount + 1);
+    });
+}
+
+onAuthStateChanged(auth, (user) => {
+    startNotifyListener(user ? user.uid : null);
+});
+
+document.getElementById('btn-service').addEventListener('click', () => {
+    if (chatId) localStorage.setItem(seenKey(chatId), String(Date.now()));
+    setBadge(0);
+});
