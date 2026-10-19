@@ -386,7 +386,7 @@
       <button class="mn-btn light" id="acResetBtn">Send password reset link</button>
 
       <div class="mn-h">🛡️ Two-factor authentication (2FA)</div>
-      <div class="mn-row" style="color:#888">শীঘ্রই চালু হবে। এর জন্য Firebase-এ আলাদা সেটআপ লাগে।</div>
+      <div class="mn-row" style="color:#888">This is not available to you</div>
 
       <button class="mn-btn red" id="acLogout" style="margin-top:14px">🚪 Log out</button>
     </div>
@@ -462,7 +462,7 @@ function start(app) {
     $("addrList").innerHTML = keys.length ? keys.map(k => {
       const a = list[k];
       return `<div class="mn-row"><div class="top"><b>${esc(a.label)} ${k === def ? '<span class="mn-badge ok">Default</span>' : ""}</b>
-        <span><button class="mn-mini star" data-def="${k}">⭐ Default</button> <button class="mn-mini" data-del="${k}">🗑 মুছুন</button></span></div>
+        <span><button class="mn-mini star" data-def="${k}">⭐ Default</button> <button class="mn-mini" data-del="${k}">🗑 Delete</button></span></div>
         <div>${esc(a.name)} • ${esc(a.phone)}</div><div class="date">${esc(a.text)}</div></div>`;
     }).join("") : `<div class="mn-empty">No address is saved</div>`;
   };
