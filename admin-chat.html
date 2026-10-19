@@ -753,5 +753,165 @@ onAuthStateChanged(auth, (user) => {
   }, (err) => console.error('Customers load failed:', err.code));
 });
 </script>
+<!-- ===== ADD BALANCE ===== -->
+<style>
+#balOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;align-items:flex-start;justify-content:center;padding:40px 12px;overflow:auto;font-family:Arial,sans-serif}
+#balOverlay.show{display:flex}
+.bal-modal{background:#fff;border-radius:16px;width:100%;max-width:560px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,.35)}
+.bal-head{background:#ff5722;color:#fff;padding:18px 20px;display:flex;justify-content:space-between;align-items:center;font-size:18px;font-weight:700}
+.bal-close{background:#fff;color:#e53935;border:0;border-radius:8px;width:36px;height:32px;font-size:16px;cursor:pointer}
+.bal-body{padding:16px 20px 20px}
+.bal-sendto{background:#fff3ef;border:1px solid #ffd2c4;border-radius:12px;padding:12px 14px}
+.bal-sendto small{color:#555;font-size:13px}
+#balSelected{color:#ff5722;font-weight:700;font-size:15px;margin:6px 0 8px}
+.bal-input{width:100%;box-sizing:border-box;padding:11px 14px;border:1px solid #d6d6e0;border-radius:10px;font-size:14px;background:#fff;color:#222}
+#balList{display:none;max-height:210px;overflow-y:auto;margin-top:6px;border:1px solid #eee;border-radius:10px;background:#fff}
+#balList .bal-item{padding:9px 12px;border-bottom:1px solid #f0f0f0;cursor:pointer;font-size:13px;color:#222}
+#balList .bal-item:hover{background:#fff3ef}
+#balList .bal-item b{color:#ff5722}
+.bal-label{margin:14px 0 6px;font-size:13px;color:#555}
+.bal-quick{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.bal-quick button{background:#fff3ef;border:1px solid #ffd2c4;color:#ff5722;border-radius:8px;padding:6px 12px;cursor:pointer;font-weight:700}
+#balSubmit{width:100%;margin-top:16px;padding:13px;border:0;border-radius:12px;background:#ff5722;color:#fff;font-size:15px;font-weight:700;cursor:pointer}
+#balSubmit:disabled{opacity:.6;cursor:wait}
+#balMsg{margin-top:10px;font-size:13px;min-height:18px}
+</style>
+
+<button id="balOpenBtn">💰 Add Balance</button>
+
+<div id="balOverlay">
+  <div class="bal-modal">
+    <div class="bal-head"><span>💰 Add balance to customer</span><button class="bal-close" id="balClose">✕</button></div>
+    <div class="bal-body">
+      <div class="bal-sendto">
+        <small>Add to:</small>
+        <div id="balSelected">⬜ কোনো গ্রাহক বাছাই করা হয়নি</div>
+        <input class="bal-input" id="balSearch" placeholder="🔎 Search customer: ID / email / shop name..." autocomplete="off">
+        <div id="balList"></div>
+      </div>
+
+      <div class="bal-label">Amount ($)</div>
+      <input class="bal-input" id="balAmount" type="number" min="0" step="0.01" placeholder="কত ডলার যোগ করবেন...">
+      <div class="bal-quick">
+        <button data-amt="10">+10</button><button data-amt="50">+50</button>
+        <button data-amt="100">+100</button><button data-amt="500">+500</button>
+      </div>
+
+      <button id="balSubmit">Add Balance</button>
+      <div id="balMsg"></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { getApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
+import { getDatabase, ref, get, runTransaction, push, set, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js";
+
+const db = getDatabase(getApp());
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+
+// Add Balance বাটনকে Send Products বাটনের নিচে বসানো
+(function placeBalanceButton() {
+  const btn = $("balOpenBtn");
+  let tries = 0;
+  const timer = setInterval(() => {
+    tries++;
+    const target = [...document.querySelectorAll("button")]
+      .find(b => b !== btn && b.textContent.includes("Send Products to Customer"));
+    if (target) {
+      btn.className = target.className;
+      btn.style.cssText = target.style.cssText;
+      btn.style.marginTop = "10px";
+      target.insertAdjacentElement("afterend", btn);
+      clearInterval(timer);
+    } else if (tries > 20) {
+      Object.assign(btn.style, {position:"fixed", right:"16px", bottom:"16px", zIndex:"9998",
+        background:"#ff5722", color:"#fff", border:"0", borderRadius:"12px",
+        padding:"12px 18px", fontWeight:"700", cursor:"pointer"});
+      clearInterval(timer);
+    }
+  }, 250);
+})();
+
+let customers = [];
+let selected = null;
+
+async function loadCustomers() {
+  const snap = await get(ref(db, "customers"));
+  customers = snap.exists()
+    ? Object.entries(snap.val()).map(([uid, c]) => ({ uid, ...c }))
+    : [];
+}
+
+function renderList() {
+  const q = $("balSearch").value.trim().toLowerCase();
+  const rows = customers.filter(c =>
+    !q ||
+    String(c.customerId || "").includes(q) ||
+    (c.email || "").toLowerCase().includes(q) ||
+    (c.shopName || "").toLowerCase().includes(q) ||
+    (c.ownerName || "").toLowerCase().includes(q)
+  ).slice(0, 50);
+
+  const box = $("balList");
+  box.style.display = "block";
+  box.innerHTML = rows.length
+    ? rows.map(c => `<div class="bal-item" data-uid="${esc(c.uid)}">
+        <b>${esc(c.email)}</b> (ID ${esc(c.customerId)})<br>
+        <span style="color:#777">${esc(c.shopName || "")} ${c.ownerName ? "• " + esc(c.ownerName) : ""}</span></div>`).join("")
+    : `<div class="bal-item" style="cursor:default;color:#999">কোনো গ্রাহক পাওয়া যায়নি</div>`;
+}
+
+function selectCustomer(uid) {
+  selected = customers.find(c => c.uid === uid) || null;
+  if (!selected) return;
+  $("balSelected").innerHTML = `✅ ${esc(selected.email)} (ID ${esc(selected.customerId)})`;
+  $("balList").style.display = "none";
+  $("balSearch").value = "";
+}
+
+$("balOpenBtn").onclick = async () => {
+  $("balOverlay").classList.add("show");
+  $("balMsg").textContent = "";
+  try { await loadCustomers(); } catch (e) {
+    $("balMsg").style.color = "red"; $("balMsg").textContent = "গ্রাহকের তালিকা লোড হয়নি: " + e.message;
+  }
+};
+$("balClose").onclick = () => $("balOverlay").classList.remove("show");
+$("balOverlay").addEventListener("click", e => { if (e.target.id === "balOverlay") $("balOverlay").classList.remove("show"); });
+
+$("balSearch").addEventListener("focus", renderList);
+$("balSearch").addEventListener("input", renderList);
+$("balList").addEventListener("click", e => {
+  const item = e.target.closest(".bal-item[data-uid]");
+  if (item) selectCustomer(item.dataset.uid);
+});
+document.querySelectorAll(".bal-quick button").forEach(b =>
+  b.onclick = () => { $("balAmount").value = b.dataset.amt; });
+
+$("balSubmit").onclick = async () => {
+  const msg = $("balMsg");
+  const amount = parseFloat($("balAmount").value);
+  if (!selected) { msg.style.color = "red"; msg.textContent = "আগে একজন গ্রাহক বাছাই করুন"; return; }
+  if (isNaN(amount) || amount <= 0) { msg.style.color = "red"; msg.textContent = "সঠিক Amount দিন"; return; }
+
+  $("balSubmit").disabled = true;
+  msg.style.color = "#555"; msg.textContent = "অপেক্ষা করুন...";
+  try {
+    const res = await runTransaction(ref(db, "balances/" + selected.uid), cur =>
+      Math.round(((Number(cur) || 0) + amount) * 100) / 100);
+    await set(push(ref(db, "balanceLogs/" + selected.uid)), { amount, at: serverTimestamp() });
+
+    msg.style.color = "green";
+    msg.textContent = `✅ $${amount.toFixed(2)} যোগ হয়েছে। নতুন ব্যালেন্স: $${res.snapshot.val().toFixed(2)}`;
+    $("balAmount").value = "";
+  } catch (e) {
+    msg.style.color = "red"; msg.textContent = "Error: " + e.message;
+  }
+  $("balSubmit").disabled = false;
+};
+</script>
 </body>
 </html>
