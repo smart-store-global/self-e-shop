@@ -405,51 +405,59 @@
 <div id="mnToast"></div>
 
 <script type="module">
-import { getApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, sendPasswordResetEmail, sendEmailVerification, verifyBeforeUpdateEmail, signOut }
-  from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
-import { getDatabase, ref, onValue, update, set, push, remove }
-  from "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js";
+// ===== Profile Menu (connected to Firebase) =====
+import * as PmApp  from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
+import * as PmAuth from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
+import * as PmDb   from "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js";
 
-// ⚠️ আপনার অর্ডার Firebase-এর যে পাথে সেভ হয় সেটা এখানে দিন। ধরে নিয়েছি: orders/{uid}/{orderId}
-const ORDERS_PATH = "orders";
+// Firebase path where admin-sent orders are saved. Assumed: {path}/{uid}/{orderId}
+const PM_ORDERS_PATH = "orders";
 
-const $ = (id) => document.getElementById(id);
-const esc = (s) => String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
-const fmtDate = (t) => {
-  if (!t) return "No date";
-  const d = new Date(typeof t === "number" ? t : (isNaN(t) ? t : Number(t)));
-  if (isNaN(d)) return String(t);
-  return d.toLocaleDateString("en-GB", {day:"2-digit", month:"short", year:"numeric"}) + ", " +
-         d.toLocaleTimeString("en-US", {hour:"2-digit", minute:"2-digit"});
-};
-function toast(text, ok = true) {
-  const t = $("mnToast"); t.textContent = text; t.style.background = ok ? "#16a34a" : "#e53935";
-  t.style.display = "block"; clearTimeout(toast._t); toast._t = setTimeout(() => t.style.display = "none", 3500);
-}
+(function profileMenu() {
+  const { getAuth, onAuthStateChanged, signOut, sendPasswordResetEmail, sendEmailVerification, verifyBeforeUpdateEmail } = PmAuth;
+  const { getDatabase, ref, onValue, set, push, update, remove } = PmDb;
 
-// ---------- মেনু খোলা/বন্ধ ও ট্যাব ----------
-const drawer = $("menuDrawer"), overlay = $("menuOverlay");
-const openMenu = () => { drawer.classList.add("show"); overlay.classList.add("show"); };
-const closeMenu = () => { drawer.classList.remove("show"); overlay.classList.remove("show"); };
-$("menuBtn").onclick = openMenu; overlay.onclick = closeMenu; $("menuClose").onclick = closeMenu;
-document.addEventListener("keydown", e => { if (e.key === "Escape") closeMenu(); });
-document.querySelectorAll(".mn-tabs button").forEach(b => b.onclick = () => {
-  document.querySelectorAll(".mn-tabs button").forEach(x => x.classList.toggle("active", x === b));
-  document.querySelectorAll(".mn-pane").forEach(p => p.classList.toggle("active", p.dataset.pane === b.dataset.tab));
-});
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+  const fmtDate = (t) => {
+    if (!t) return "No date";
+    const d = new Date(typeof t === "number" ? t : (isNaN(t) ? t : Number(t)));
+    if (isNaN(d)) return String(t);
+    return d.toLocaleDateString("en-GB", {day:"2-digit", month:"short", year:"numeric"}) + ", " +
+           d.toLocaleTimeString("en-US", {hour:"2-digit", minute:"2-digit"});
+  };
+  const orderTime = (o) => o.createdAt || o.confirmedAt || o.assignedAt || o.time || o.date || 0;
+  function toast(text, ok = true) {
+    const t = $("mnToast"); if (!t) return;
+    t.textContent = text; t.style.background = ok ? "#16a34a" : "#e53935";
+    t.style.display = "block"; clearTimeout(toast._t); toast._t = setTimeout(() => t.style.display = "none", 3500);
+  }
 
-// ---------- Firebase চালু হওয়া পর্যন্ত অপেক্ষা ----------
-let tries = 0;
-const wait = setInterval(() => {
-  try { const app = getApp(); clearInterval(wait); start(app); }
-  catch (e) { if (++tries > 40) { clearInterval(wait); console.error("Firebase app Not found"); } }
-}, 150);
+  // ---------- Menu open/close and tabs ----------
+  const drawer = $("menuDrawer"), overlay = $("menuOverlay");
+  const openMenu  = () => { drawer.classList.add("show");    overlay.classList.add("show"); };
+  const closeMenu = () => { drawer.classList.remove("show"); overlay.classList.remove("show"); };
+  $("menuBtn").onclick = openMenu; $("menuClose").onclick = closeMenu; overlay.onclick = closeMenu;
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeMenu(); });
+  document.querySelectorAll(".mn-tabs button").forEach((b) => {
+    b.onclick = () => {
+      document.querySelectorAll(".mn-tabs button").forEach((x) => x.classList.toggle("active", x === b));
+      document.querySelectorAll(".mn-pane").forEach((p) => p.classList.toggle("active", p.dataset.pane === b.dataset.tab));
+    };
+  });
 
-function start(app) {
-  const auth = getAuth(app), db = getDatabase(app);
+  const app = PmApp.getApp(), auth = getAuth(app), db = getDatabase(app);
   let user = null, customer = {}, profile = {}, stops = [];
 
+  // ---------- Show login/register OR dashboard ----------
+  function gate(u) {
+    const a = $("auth-section"), d = $("dashboard-section");
+    if (a) a.style.display = u ? "none" : "";
+    if (d) d.style.display = u ? "block" : "none";
+    $("menuBtn").style.display = u ? "flex" : "none";
+  }
+
+  // ---------- Renderers ----------
   const renderHeader = () => {
     $("mnName").textContent = customer.ownerName || customer.shopName || "Customer";
     $("mnEmail").textContent = user?.email || "";
@@ -458,60 +466,64 @@ function start(app) {
     if (profile.photo) { av.style.backgroundImage = `url(${profile.photo})`; av.childNodes[0].nodeValue = ""; }
     else { av.style.backgroundImage = ""; av.childNodes[0].nodeValue = "👤"; }
     $("ovSince").textContent = customer.createdAt ? fmtDate(customer.createdAt).split(",")[0] : "-";
-    $("acOwner").value = customer.ownerName || "";
-    $("acShop").value = customer.shopName || "";
-    $("acPhone").value = customer.phone || "";
+    const act = document.activeElement;
+    if (!["acOwner", "acShop", "acPhone"].includes(act && act.id)) {
+      $("acOwner").value = customer.ownerName || "";
+      $("acShop").value  = customer.shopName  || "";
+      $("acPhone").value = customer.phone     || "";
+    }
     const ver = user?.emailVerified;
-    $("acVerified").innerHTML = ver ? "✅ Email verified" : "⚠️ Email has not been verified yet";
+    $("acVerified").innerHTML = ver ? "✅ Email verified" : "⚠️ Email not verified yet";
     $("acVerifyBtn").style.display = ver ? "none" : "block";
   };
 
   const renderAddresses = () => {
-    const list = profile.addresses || {}, def = profile.defaultAddress;
-    const keys = Object.keys(list);
-    $("addrList").innerHTML = keys.length ? keys.map(k => {
+    const list = profile.addresses || {}, def = profile.defaultAddress, keys = Object.keys(list);
+    $("addrList").innerHTML = keys.length ? keys.map((k) => {
       const a = list[k];
       return `<div class="mn-row"><div class="top"><b>${esc(a.label)} ${k === def ? '<span class="mn-badge ok">Default</span>' : ""}</b>
-        <span><button class="mn-mini star" data-def="${k}">⭐ Default</button> <button class="mn-mini" data-del="${k}">🗑 Delete</button></span></div>
+        <span><button class="mn-mini star" data-def="${k}">⭐ Set default</button> <button class="mn-mini" data-del="${k}">🗑 Delete</button></span></div>
         <div>${esc(a.name)} • ${esc(a.phone)}</div><div class="date">${esc(a.text)}</div></div>`;
-    }).join("") : `<div class="mn-empty">No address is saved</div>`;
+    }).join("") : `<div class="mn-empty">No saved addresses</div>`;
   };
 
   const renderOrders = (orders) => {
     $("ovTotal").textContent = orders.length;
-    $("ovPending").textContent = orders.filter(o => String(o.status || "").toLowerCase() === "pending").length;
-    $("orderList").innerHTML = orders.length ? orders.map(o => {
+    $("ovPending").textContent = orders.filter((o) => String(o.status || "Pending").toLowerCase() === "pending").length;
+    $("orderList").innerHTML = orders.length ? orders.map((o) => {
       const st = String(o.status || "Pending");
       return `<div class="mn-row"><div class="top"><b>${esc(o.title || o.name || "Product")}</b>
         <span class="mn-badge ${st.toLowerCase() === "pending" ? "" : "ok"}">${esc(st)}</span></div>
-        ${o.originalPrice != null ? `<div>দাম: $${esc(o.originalPrice)}</div>` : ""}
-        <div class="date">📅 ${fmtDate(o.createdAt || o.confirmedAt || o.time || o.date)}</div></div>`;
-    }).join("") : `<div class="mn-empty">There are no orders yet</div>`;
+        ${o.originalPrice != null ? `<div>Price: $${esc(o.originalPrice)}</div>` : ""}
+        <div class="date">📅 ${fmtDate(orderTime(o))}</div></div>`;
+    }).join("") : `<div class="mn-empty">No orders yet</div>`;
   };
 
-  const listen = (path, cb) => stops.push(onValue(ref(db, path), cb, e => console.warn(path, e.code)));
+  const listen = (path, cb) => stops.push(onValue(ref(db, path), cb, (e) => console.warn("Read failed:", path, e.code)));
 
+  // ---------- Auth state ----------
   onAuthStateChanged(auth, (u) => {
-    stops.forEach(s => s()); stops = []; user = u;
+    stops.forEach((s) => s()); stops = []; user = u;
+    gate(u);
     if (!u) return;
     renderHeader();
-    listen("customers/" + u.uid, s => { customer = s.val() || {}; renderHeader(); });
-    listen("profiles/" + u.uid, s => { profile = s.val() || {}; renderHeader(); renderAddresses(); });
-    listen("balances/" + u.uid, s => { $("ovBalance").textContent = "$" + (Number(s.val()) || 0).toFixed(2); });
-    listen("balanceLogs/" + u.uid, s => {
+    listen("customers/" + u.uid, (s) => { customer = s.val() || {}; renderHeader(); });
+    listen("profiles/" + u.uid,  (s) => { profile  = s.val() || {}; renderHeader(); renderAddresses(); });
+    listen("balances/" + u.uid,  (s) => { $("ovBalance").textContent = "$" + (Number(s.val()) || 0).toFixed(2); });
+    listen("balanceLogs/" + u.uid, (s) => {
       const rows = Object.values(s.val() || {}).sort((a, b) => (b.at || 0) - (a.at || 0)).slice(0, 15);
-      $("ovHistory").innerHTML = rows.length ? rows.map(r =>
+      $("ovHistory").innerHTML = rows.length ? rows.map((r) =>
         `<div class="mn-row"><div class="top"><b style="color:#16a34a">+ $${Number(r.amount).toFixed(2)}</b><span class="date">${fmtDate(r.at)}</span></div></div>`).join("")
-        : `<div class="mn-empty">No balance has been added yet</div>`;
+        : `<div class="mn-empty">No balance added yet</div>`;
     });
-    listen(ORDERS_PATH + "/" + u.uid, s => {
-      const orders = Object.values(s.val() || {}).filter(o => o && typeof o === "object")
-        .sort((a, b) => new Date(b.createdAt || b.confirmedAt || b.time || b.date || 0) - new Date(a.createdAt || a.confirmedAt || a.time || a.date || 0));
+    listen(PM_ORDERS_PATH + "/" + u.uid, (s) => {
+      const orders = Object.values(s.val() || {}).filter((o) => o && typeof o === "object")
+        .sort((a, b) => new Date(orderTime(b)) - new Date(orderTime(a)));
       renderOrders(orders);
     });
   });
 
-  // ---------- প্রোফাইল ছবি (ছোট করে Database-এ সেভ হয়) ----------
+  // ---------- Profile photo ----------
   $("mnPhotoInput").onchange = (e) => {
     const f = e.target.files[0]; if (!f || !user) return;
     const img = new Image(), rd = new FileReader();
@@ -520,55 +532,59 @@ function start(app) {
       const S = 220, c = document.createElement("canvas"); c.width = c.height = S;
       const m = Math.min(img.width, img.height);
       c.getContext("2d").drawImage(img, (img.width - m) / 2, (img.height - m) / 2, m, m, 0, 0, S, S);
-      try { await set(ref(db, "profiles/" + user.uid + "/photo"), c.toDataURL("image/jpeg", 0.8)); toast("✅ The image has been saved"); }
-      catch (err) { toast("The image was not saved: " + err.message, false); }
+      try { await set(ref(db, "profiles/" + user.uid + "/photo"), c.toDataURL("image/jpeg", 0.8)); toast("✅ Photo saved"); }
+      catch (err) { toast("Photo not saved: " + err.message, false); }
     };
     rd.readAsDataURL(f); e.target.value = "";
   };
+  $("mnCid").onclick = () => { if (customer.customerId) { navigator.clipboard?.writeText(String(customer.customerId)); toast("ID copied"); } };
 
-  $("mnCid").onclick = () => { if (customer.customerId) { navigator.clipboard?.writeText(String(customer.customerId)); toast("ID Copied"); } };
-
-  // ----------Address ----------
+  // ---------- Address ----------
   $("adSave").onclick = async () => {
     const a = { label: $("adLabel").value, name: $("adName").value.trim(), phone: $("adPhone").value.trim(), text: $("adText").value.trim() };
-    if (!a.name || !a.phone || !a.text) return toast("Provide your name, phone number, and address", false);
+    if (!a.name || !a.phone || !a.text) return toast("Please enter name, phone and address", false);
     try {
       const r = push(ref(db, "profiles/" + user.uid + "/addresses")); await set(r, a);
       if (!profile.defaultAddress) await set(ref(db, "profiles/" + user.uid + "/defaultAddress"), r.key);
-      ["adName", "adPhone", "adText"].forEach(i => $(i).value = ""); toast("✅ The address has been saved");
+      ["adName", "adPhone", "adText"].forEach((i) => $(i).value = ""); toast("✅ Address saved");
     } catch (e) { toast("Error: " + e.message, false); }
   };
   $("addrList").onclick = async (e) => {
     const d = e.target.dataset; if (!user) return;
-    if (d.del && confirm("Delete the address?")) {
+    if (d.del && confirm("Delete this address?")) {
       await remove(ref(db, "profiles/" + user.uid + "/addresses/" + d.del));
       if (profile.defaultAddress === d.del) await remove(ref(db, "profiles/" + user.uid + "/defaultAddress"));
     }
-    if (d.def) { await set(ref(db, "profiles/" + user.uid + "/defaultAddress"), d.def); toast("The default address has changed"); }
+    if (d.def) { await set(ref(db, "profiles/" + user.uid + "/defaultAddress"), d.def); toast("Default address updated"); }
   };
 
   // ---------- Account ----------
   $("acSave").onclick = async () => {
     try {
-      await update(ref(db, "customers/" + user.uid), {
-        ownerName: $("acOwner").value.trim(), shopName: $("acShop").value.trim(), phone: $("acPhone").value.trim() });
-      toast("✅ Information has been saved");
+      await update(ref(db, "customers/" + user.uid), { ownerName: $("acOwner").value.trim(), shopName: $("acShop").value.trim(), phone: $("acPhone").value.trim() });
+      toast("✅ Information saved");
     } catch (e) { toast("Error: " + e.message, false); }
   };
   $("acEmailBtn").onclick = async () => {
-    const em = $("acEmail").value.trim(); if (!em) return toast("Write a new email", false);
-    try { await verifyBeforeUpdateEmail(user, em); toast("✅ A link has been sent to your new email address. Click the link to change your email"); }
-    catch (e) { toast(e.code === "auth/requires-recent-login" ? "For security reasons, please log out and then log back in to try again" : "Error: " + e.message, false); }
+    const em = $("acEmail").value.trim(); if (!em) return toast("Enter the new email", false);
+    try { await verifyBeforeUpdateEmail(user, em); toast("✅ Link sent to the new email. Click it to confirm the change"); }
+    catch (e) { toast(e.code === "auth/requires-recent-login" ? "For security, please log out, log in again and retry" : "Error: " + e.message, false); }
   };
   $("acVerifyBtn").onclick = async () => {
-    try { await sendEmailVerification(user); toast("✅ A verification link has been sent"); } catch (e) { toast("Error: " + e.message, false); }
+    try { await sendEmailVerification(user); toast("✅ Verification link sent"); } catch (e) { toast("Error: " + e.message, false); }
   };
   $("acResetBtn").onclick = async () => {
-    try { await sendPasswordResetEmail(auth, user.email); toast("✅ " + user.email + " A reset link has been sent to the address"); }
+    try { await sendPasswordResetEmail(auth, user.email); toast("✅ Reset link sent to " + user.email); }
     catch (e) { toast("Error: " + e.message, false); }
   };
-  $("acLogout").onclick = async () => { if (confirm("Log out?")) { await signOut(auth); location.reload(); } };
-}
+
+  // ---------- Log out ----------
+  $("acLogout").onclick = async () => {
+    if (!confirm("Do you want to log out?")) return;
+    try { await signOut(auth); } catch (e) { console.error(e); }
+    closeMenu(); gate(null); location.reload();
+  };
+})();
 </script>
 </body>
 </html>
