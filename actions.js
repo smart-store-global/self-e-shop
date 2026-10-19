@@ -645,31 +645,149 @@ onAuthStateChanged(orderAuthRef, (user) => {
 window.confirmAssignedOrder = async function (index) {
   const item = userAssignedOrders[index];
   const user = orderAuthRef.currentUser;
-  if (!item || !user || !item._key || item.status !== 'Pending') return;
-  if (!confirm('Confirm this order? You will pay after you receive the product.')) return;
+
+  if (!item || !user || item.status !== "Pending") return;
+
+  // Replace wholesalePrice if your database uses a different field name.
+  const price = Math.round(Number(item.wholesalePrice) * 100) / 100;
+
+  if (!Number.isFinite(price) || price <= 0) {
+    alert("Order price is unavailable.");
+    return;
+  }
+
+  if (!confirm(`Confirm purchase for $${price.toFixed(2)}?`)) return;
+
+  const orderRef = ref(
+    orderDbRef,
+    `assignedOrders/${user.uid}/${item._key}`
+  );
+  const balanceRef = ref(orderDbRef, `balances/${user.uid}`);
+
+  let orderClaimed = false;
+  let balanceDeducted = false;
+
   try {
-    await update(ref(orderDbRef, 'assignedOrders/' + user.uid + '/' + item._key), {
-      status: 'Confirmed',
-      confirmedAt: Date.now()
+    // Claim the order so another click cannot process it at the same time.
+    const claimTx = await runTransaction(orderRef, currentOrder => {
+      if (!currentOrder || currentOrder.status !== "Pending") return;
+
+      return {
+        ...currentOrder,
+        status: "Processing"
+      };
     });
-  } catch (e) {
-    console.error('Confirm failed:', e);
-    alert('Could not confirm the order. Please try again.');
+
+    if (!claimTx.committed) {
+      alert("This order is already being processed or is no longer pending.");
+      return;
+    }
+
+    orderClaimed = true;
+
+    let insufficientBalance = false;
+
+    // Deduct the price only if the balance is sufficient.
+    const balanceTx = await runTransaction(balanceRef, currentBalance => {
+      const balance = Number(currentBalance) || 0;
+
+      if (balance < price) {
+        insufficientBalance = true;
+        return;
+      }
+
+      return Math.round((balance - price) * 100) / 100;
+    });
+
+    if (!balanceTx.committed) {
+      await update(orderRef, { status: "Pending" });
+      orderClaimed = false;
+
+      alert(
+        insufficientBalance
+          ? "Insufficient balance. The order was not confirmed."
+          : "Could not update the balance. Please try again."
+      );
+      return;
+    }
+
+    balanceDeducted = true;
+
+    try {
+      await update(orderRef, {
+        status: "Confirmed",
+        statusMessage: "Product is being sent for shipment.",
+        confirmedAt: Date.now()
+      });
+
+      orderClaimed = false;
+    } catch (orderError) {
+      // Try to return the money if the order status could not be updated.
+      let refundCommitted = false;
+
+      try {
+        const refundTx = await runTransaction(balanceRef, currentBalance => {
+          const balance = Number(currentBalance);
+
+          if (!Number.isFinite(balance)) return;
+
+          return Math.round((balance + price) * 100) / 100;
+        });
+
+        refundCommitted = refundTx.committed;
+      } catch (refundError) {
+        console.error("Refund transaction failed:", refundError);
+      }
+
+      if (!refundCommitted) {
+        console.error("Order update failed and refund needs review:", orderError);
+        alert(
+          "The order could not be updated and the refund could not be verified. Please contact support before retrying."
+        );
+        return;
+      }
+
+      balanceDeducted = false;
+      await update(orderRef, { status: "Pending" });
+      orderClaimed = false;
+
+      throw orderError;
+    }
+
+    // Write a negative balance log after the purchase succeeds.
+    try {
+      await set(
+        push(ref(orderDbRef, `balanceLogs/${user.uid}`)),
+        {
+          amount: -price,
+          type: "order_purchase",
+          orderKey: item._key,
+          at: serverTimestamp()
+        }
+      );
+    } catch (logError) {
+      console.error("Balance log write failed:", logError);
+    }
+
+    alert("Payment received. Product is being sent for shipment.");
+  } catch (error) {
+    console.error("Purchase confirmation failed:", error);
+
+    if (orderClaimed && !balanceDeducted) {
+      try {
+        await update(orderRef, { status: "Pending" });
+      } catch (resetError) {
+        console.error("Could not reset the order status:", resetError);
+      }
+    }
+
+    alert(
+      balanceDeducted
+        ? "The purchase may have been charged, but the order status could not be verified. Please contact support before retrying."
+        : "Could not complete the purchase. Please try again."
+    );
   }
 };
-
-// ✕ বাটন ঠিক করা: closeOrderModal কে HTML থেকে ডাকার উপযোগী করা
-if (typeof closeOrderModal === 'function') {
-  window.closeOrderModal = closeOrderModal;
-} else {
-  window.closeOrderModal = function () {
-    const m = document.getElementById('order-modal-window');
-    if (m) {
-      m.style.display = 'none';
-      m.classList.remove('active', 'show', 'open');
-    }
-  };
-}
 
 // ===== Live Balance Listener (admin যোগ করলে সঙ্গে সঙ্গে দেখাবে) =====
 import * as BalApp  from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
