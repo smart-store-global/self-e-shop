@@ -625,3 +625,42 @@ document.getElementById('btn-service').addEventListener('click', () => {
     if (chatId) localStorage.setItem(seenKey(chatId), String(Date.now()));
     setBadge(0);
 });
+
+const orderAuthRef = getAuth();
+const orderDbRef = getDatabase();
+let stopAssignedOrders = null;
+
+onAuthStateChanged(orderAuthRef, (user) => {
+  if (stopAssignedOrders) { stopAssignedOrders(); stopAssignedOrders = null; }
+  userAssignedOrders = [];
+  updateOrderInterface();
+  if (!user) return;
+
+  stopAssignedOrders = onValue(
+    ref(orderDbRef, 'assignedOrders/' + user.uid),
+    (snap) => {
+      const list = [];
+      snap.forEach((c) => { list.push({ ...(c.val() || {}), _key: c.key }); });
+      list.sort((a, b) => (b.time || 0) - (a.time || 0));
+      userAssignedOrders = list;
+      updateOrderInterface();
+    },
+    (err) => console.error('Assigned orders load failed:', err.code)
+  );
+});
+
+window.confirmAssignedOrder = async function (index) {
+  const item = userAssignedOrders[index];
+  const user = orderAuthRef.currentUser;
+  if (!item || !user || !item._key || item.status !== 'Pending') return;
+  if (!confirm('Confirm this order? You will pay after you receive the product.')) return;
+  try {
+    await update(ref(orderDbRef, 'assignedOrders/' + user.uid + '/' + item._key), {
+      status: 'Confirmed',
+      confirmedAt: Date.now()
+    });
+  } catch (e) {
+    console.error('Confirm failed:', e);
+    alert('Could not confirm the order. Please try again.');
+  }
+};
