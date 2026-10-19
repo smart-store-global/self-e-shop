@@ -690,3 +690,53 @@ import * as BalDb   from "https://www.gstatic.com/firebasejs/13.0.0/firebase-dat
     });
   });
 })();
+
+// ===== Login / Register switch =====
+import * as LgAuth from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
+import * as LgApp  from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
+
+(function loginSetup() {
+  const $ = (id) => document.getElementById(id);
+  const auth = LgAuth.getAuth(LgApp.getApp());
+  const regForm = $("registerForm"), loginForm = $("loginForm");
+  const title = document.querySelector("#auth-section h2");
+  let mode = "register";
+
+  function setMode(m) {
+    mode = m;
+    regForm.style.display   = m === "register" ? "" : "none";
+    loginForm.style.display = m === "login" ? "" : "none";
+    title.textContent = m === "register" ? "Register Your Shop" : "Login to Your Shop";
+    $("authToggleText").textContent = m === "register" ? "Already have an account?" : "New here?";
+    $("authToggleLink").textContent = m === "register" ? "Login" : "Register";
+    $("loginMsg").textContent = "";
+  }
+  $("authToggleLink").onclick = (e) => { e.preventDefault(); setMode(mode === "register" ? "login" : "register"); };
+
+  loginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const msg = $("loginMsg");
+    msg.style.color = "#555"; msg.textContent = "Please wait...";
+    try {
+      await LgAuth.signInWithEmailAndPassword(auth, $("loginEmail").value.trim(), $("loginPassword").value);
+      msg.textContent = "";
+      // If your page does not switch to the dashboard by itself, do it here
+      setTimeout(() => {
+        const a = $("auth-section"), d = $("dashboard-section");
+        if (a && d && getComputedStyle(a).display !== "none") { a.style.display = "none"; d.style.display = "block"; }
+      }, 1200);
+    } catch (err) {
+      msg.style.color = "#e53935";
+      msg.textContent = (err.code === "auth/invalid-credential" || err.code === "auth/wrong-password" || err.code === "auth/user-not-found")
+        ? "Wrong email or password." : "Login failed: " + err.code;
+    }
+  });
+
+  $("forgotLink").onclick = async (e) => {
+    e.preventDefault();
+    const em = $("loginEmail").value.trim(), msg = $("loginMsg");
+    if (!em) { msg.style.color = "#e53935"; msg.textContent = "Enter your email first."; return; }
+    try { await LgAuth.sendPasswordResetEmail(auth, em); msg.style.color = "#16a34a"; msg.textContent = "Reset link sent to " + em; }
+    catch (err) { msg.style.color = "#e53935"; msg.textContent = "Could not send: " + err.code; }
+  };
+})();
