@@ -287,14 +287,7 @@ function sendPublicChatMessage() {
 }
 // 🔒 6. Admin Portal Controllers Framework
 function addBalanceFromAdmin() {
-    const amountInput = document.getElementById('adminDepositAmount');
-    const amount = parseFloat(amountInput.value);
-    if (!isNaN(amount) && amount > 0) {
-        currentBalance += amount;
-        document.getElementById('userBalance').innerText = currentBalance.toFixed(2);
-        amountInput.value = "";
-        alert(`💰 Success! Added $${amount.toFixed(2)} to client account balance.`);
-    }
+  alert("ব্যালেন্স শুধু Admin যোগ করতে পারবে।");
 }
 
 function populateAdminDropdown() {
@@ -677,3 +670,23 @@ if (typeof closeOrderModal === 'function') {
     }
   };
 }
+
+// ===== Live Balance Listener (admin যোগ করলে সঙ্গে সঙ্গে দেখাবে) =====
+import * as BalApp  from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
+import * as BalAuth from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
+import * as BalDb   from "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js";
+
+(function startBalanceListener() {
+  const balAuth = BalAuth.getAuth(BalApp.getApp());
+  const balDb   = BalDb.getDatabase(BalApp.getApp());
+
+  BalAuth.onAuthStateChanged(balAuth, (user) => {
+    if (!user) return;
+    BalDb.onValue(BalDb.ref(balDb, "balances/" + user.uid), (snap) => {
+      const bal = Number(snap.val()) || 0;
+      try { currentBalance = bal; } catch (e) { window.currentBalance = bal; }
+      const el = document.getElementById("userBalance");
+      if (el) el.innerText = bal.toFixed(2);
+    });
+  });
+})();
