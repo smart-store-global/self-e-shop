@@ -645,95 +645,81 @@ onAuthStateChanged(orderAuthRef, (user) => {
 window.confirmAssignedOrder = async function (index) {
   const item = userAssignedOrders[index];
   const user = orderAuthRef.currentUser;
-
+  
   if (!item || !user || item.status !== "Pending") return;
 
-  // Replace wholesalePrice if your database uses a different field name.
+  // Validate wholesale price
   const price = Math.round(Number(item.wholesalePrice) * 100) / 100;
-
   if (!Number.isFinite(price) || price <= 0) {
     alert("Order price is unavailable.");
     return;
   }
 
-  if (!confirm(`Confirm purchase for $${price.toFixed(2)}?`)) return;
-
-  const orderRef = ref(
-    orderDbRef,
-    `assignedOrders/${user.uid}/${item._key}`
-  );
+  const orderRef = ref(orderDbRef, `assignedOrders/${user.uid}/${item._key}`);
   const balanceRef = ref(orderDbRef, `balances/${user.uid}`);
-
+  
   let orderClaimed = false;
   let balanceDeducted = false;
 
   try {
-    // Claim the order so another click cannot process it at the same time.
+    // 1. Check balance first and deduct if sufficient
+    let insufficientBalance = false;
+    
+    const balanceTx = await runTransaction(balanceRef, currentBalance => {
+      const balance = Number(currentBalance) || 0;
+      if (balance < price) {
+        insufficientBalance = true; // Triggers transaction abort if balance is low
+        return; 
+      }
+      return Math.round((balance - price) * 100) / 100;
+    });
+
+    // Alert user if balance is insufficient or update fails
+    if (!balanceTx.committed) {
+      if (insufficientBalance) {
+        alert("Insufficient balance. You do not have enough dollars in your account.");
+      } else {
+        alert("Could not update the balance. Please try again.");
+      }
+      return;
+    }
+    
+    balanceDeducted = true; // FIXED: Fixed the typo here
+
+    // 2. Lock the order status to 'Processing' to prevent double-clicks
     const claimTx = await runTransaction(orderRef, currentOrder => {
       if (!currentOrder || currentOrder.status !== "Pending") return;
-
-      return {
-        ...currentOrder,
-        status: "Processing"
-      };
+      return { ...currentOrder, status: "Processing" };
     });
 
     if (!claimTx.committed) {
       alert("This order is already being processed or is no longer pending.");
+      // Refund the money since the balance was deducted but order processing failed
+      await runTransaction(balanceRef, currentBalance => {
+        const balance = Number(currentBalance) || 0;
+        return Math.round((balance + price) * 100) / 100;
+      });
       return;
     }
-
+    
     orderClaimed = true;
 
-    let insufficientBalance = false;
-
-    // Deduct the price only if the balance is sufficient.
-    const balanceTx = await runTransaction(balanceRef, currentBalance => {
-      const balance = Number(currentBalance) || 0;
-
-      if (balance < price) {
-        insufficientBalance = true;
-        return;
-      }
-
-      return Math.round((balance - price) * 100) / 100;
-    });
-
-    if (!balanceTx.committed) {
-      await update(orderRef, { status: "Pending" });
-      orderClaimed = false;
-
-      alert(
-        insufficientBalance
-          ? "Insufficient balance. The order was not confirmed."
-          : "Could not update the balance. Please try again."
-      );
-      return;
-    }
-
-    balanceDeducted = true;
-
+    // 3. Finalize order status to 'Confirmed' and set the shipment message
     try {
       await update(orderRef, {
         status: "Confirmed",
         statusMessage: "Product is being sent for shipment.",
         confirmedAt: Date.now()
       });
-
-      orderClaimed = false;
+      orderClaimed = false; // Successfully confirmed
     } catch (orderError) {
-      // Try to return the money if the order status could not be updated.
+      // Try to refund the money if the order status update fails
       let refundCommitted = false;
-
       try {
         const refundTx = await runTransaction(balanceRef, currentBalance => {
-          const balance = Number(currentBalance);
-
-          if (!Number.isFinite(balance)) return;
-
+          const balance = Number(currentBalance) || 0;
           return Math.round((balance + price) * 100) / 100;
         });
-
         refundCommitted = refundTx.committed;
       } catch (refundError) {
         console.error("Refund transaction failed:", refundError);
@@ -741,38 +727,35 @@ window.confirmAssignedOrder = async function (index) {
 
       if (!refundCommitted) {
         console.error("Order update failed and refund needs review:", orderError);
-        alert(
-          "The order could not be updated and the refund could not be verified. Please contact support before retrying."
-        );
+        alert("The order could not be updated and the refund could not be verified. Please contact support before retrying.");
         return;
       }
-
+      
       balanceDeducted = false;
       await update(orderRef, { status: "Pending" });
       orderClaimed = false;
-
       throw orderError;
     }
 
-    // Write a negative balance log after the purchase succeeds.
+    // 4. Log the transaction history
     try {
-      await set(
-        push(ref(orderDbRef, `balanceLogs/${user.uid}`)),
-        {
-          amount: -price,
-          type: "order_purchase",
-          orderKey: item._key,
-          at: serverTimestamp()
-        }
-      );
+      await set(push(ref(orderDbRef, `balanceLogs/${user.uid}`)), {
+        amount: -price,
+        type: "order_purchase",
+        orderKey: item._key,
+        at: serverTimestamp()
+      });
     } catch (logError) {
       console.error("Balance log write failed:", logError);
     }
 
+    // Final success message
     alert("Payment received. Product is being sent for shipment.");
+
   } catch (error) {
     console.error("Purchase confirmation failed:", error);
-
+    
+    // Reset order status back to Pending if code crashes mid-execution
     if (orderClaimed && !balanceDeducted) {
       try {
         await update(orderRef, { status: "Pending" });
@@ -780,7 +763,7 @@ window.confirmAssignedOrder = async function (index) {
         console.error("Could not reset the order status:", resetError);
       }
     }
-
+    
     alert(
       balanceDeducted
         ? "The purchase may have been charged, but the order status could not be verified. Please contact support before retrying."
@@ -788,6 +771,19 @@ window.confirmAssignedOrder = async function (index) {
     );
   }
 };
+
+// ✕ বাটন ঠিক করা: closeOrderModal কে HTML থেকে ডাকার উপযোগী করা
+if (typeof closeOrderModal === 'function') {
+  window.closeOrderModal = closeOrderModal;
+} else {
+  window.closeOrderModal = function () {
+    const m = document.getElementById('order-modal-window');
+    if (m) {
+      m.style.display = 'none';
+      m.classList.remove('active', 'show', 'open');
+    }
+  };
+}
 
 // ===== Live Balance Listener (admin যোগ করলে সঙ্গে সঙ্গে দেখাবে) =====
 import * as BalApp  from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
