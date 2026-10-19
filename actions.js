@@ -664,3 +664,16 @@ window.confirmAssignedOrder = async function (index) {
     alert('Could not confirm the order. Please try again.');
   }
 };
+
+// ✕ বাটন ঠিক করা: closeOrderModal কে HTML থেকে ডাকার উপযোগী করা
+if (typeof closeOrderModal === 'function') {
+  window.closeOrderModal = closeOrderModal;
+} else {
+  window.closeOrderModal = function () {
+    const m = document.getElementById('order-modal-window');
+    if (m) {
+      m.style.display = 'none';
+      m.classList.remove('active', 'show', 'open');
+    }
+  };
+}
