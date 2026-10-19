@@ -318,7 +318,7 @@
 <button id="menuBtn" aria-label="Menu"><span></span><span></span><span></span></button>
 <div id="menuOverlay"></div>
 <div id="menuDrawer">
-  <div class="menu-head"><span>👤 আমার প্রোফাইল</span><button class="menu-close" id="menuClose">✕</button></div>
+  <div class="menu-head"><span>👤 My Profile</span><button class="menu-close" id="menuClose">✕</button></div>
 
   <div class="mn-profile">
     <label class="mn-avatar" id="mnAvatar" for="mnPhotoInput">👤<span class="mn-cam">📷</span></label>
@@ -407,7 +407,7 @@ const ORDERS_PATH = "orders";
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 const fmtDate = (t) => {
-  if (!t) return "তারিখ নেই";
+  if (!t) return "No date";
   const d = new Date(typeof t === "number" ? t : (isNaN(t) ? t : Number(t)));
   if (isNaN(d)) return String(t);
   return d.toLocaleDateString("en-GB", {day:"2-digit", month:"short", year:"numeric"}) + ", " +
