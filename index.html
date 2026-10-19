@@ -501,7 +501,233 @@ function start(app) {
     });
   });
 
-  // ---------- প্রোফাইল ছবি (ছোট করে Database-এ সেভ হয়) ----------
+<!-- ===== HAMBURGER MENU + PROFILE ===== -->
+<style>
+#menuBtn{position:fixed;top:12px;left:12px;z-index:9990;width:44px;height:44px;border:0;border-radius:10px;background:#ff5722;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+#menuBtn span{display:block;width:22px;height:3px;background:#fff;border-radius:2px}
+#menuOverlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9991;opacity:0;pointer-events:none;transition:opacity .25s}
+#menuOverlay.show{opacity:1;pointer-events:auto}
+#menuDrawer{position:fixed;top:0;left:0;height:100%;width:380px;max-width:92%;background:#fff;z-index:9992;transform:translateX(-100%);transition:transform .25s;display:flex;flex-direction:column;box-shadow:4px 0 20px rgba(0,0,0,.3);font-family:Arial,sans-serif;color:#222}
+#menuDrawer.show{transform:translateX(0)}
+.menu-head{background:#ff5722;color:#fff;padding:16px 18px;display:flex;justify-content:space-between;align-items:center;font-size:18px;font-weight:700}
+.menu-close{background:#fff;color:#e53935;border:0;border-radius:8px;width:34px;height:32px;font-size:16px;cursor:pointer}
+.mn-profile{display:flex;gap:14px;align-items:center;padding:16px 18px;background:#fff3ef;border-bottom:1px solid #ffd2c4}
+.mn-avatar{position:relative;width:72px;height:72px;border-radius:50%;background:#ffe0d6 center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-size:32px;cursor:pointer;flex-shrink:0;border:3px solid #ff5722}
+.mn-cam{position:absolute;right:-4px;bottom:-4px;background:#ff5722;color:#fff;border-radius:50%;width:26px;height:26px;font-size:13px;display:flex;align-items:center;justify-content:center}
+#mnName{font-weight:700;font-size:16px}
+#mnEmail{font-size:12px;color:#666;word-break:break-all}
+#mnCid{font-size:12px;color:#ff5722;font-weight:700;margin-top:3px;cursor:pointer}
+.mn-tabs{display:flex;border-bottom:1px solid #eee}
+.mn-tabs button{flex:1;padding:10px 4px;border:0;background:#fff;font-size:12px;cursor:pointer;color:#666;border-bottom:3px solid transparent}
+.mn-tabs button.active{color:#ff5722;font-weight:700;border-bottom-color:#ff5722}
+#menuContent{padding:16px;overflow-y:auto;flex:1;font-size:14px}
+.mn-pane{display:none}.mn-pane.active{display:block}
+.mn-cards{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mn-card{background:#fff3ef;border:1px solid #ffd2c4;border-radius:12px;padding:12px}
+.mn-card small{color:#666;font-size:12px}.mn-card b{display:block;font-size:18px;color:#ff5722;margin-top:4px}
+.mn-h{margin:16px 0 8px;font-weight:700;font-size:14px}
+.mn-row{border:1px solid #eee;border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:13px}
+.mn-row .top{display:flex;justify-content:space-between;gap:8px}
+.mn-row .date{color:#888;font-size:12px;margin-top:3px}
+.mn-badge{font-size:11px;padding:2px 8px;border-radius:10px;background:#fff3ef;color:#ff5722;font-weight:700;white-space:nowrap}
+.mn-badge.ok{background:#e8f8ee;color:#16a34a}
+.mn-in{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #d6d6e0;border-radius:10px;font-size:14px;margin-bottom:8px;background:#fff;color:#222;font-family:inherit}
+.mn-btn{width:100%;padding:11px;border:0;border-radius:10px;background:#ff5722;color:#fff;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:8px}
+.mn-btn.light{background:#fff3ef;color:#ff5722;border:1px solid #ffd2c4}
+.mn-btn.red{background:#fff;color:#e53935;border:1px solid #f3b4b1}
+.mn-mini{border:0;background:none;color:#e53935;cursor:pointer;font-size:12px}
+.mn-mini.star{color:#ff5722}
+.mn-empty{color:#999;text-align:center;padding:18px 0;font-size:13px}
+#mnToast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#333;color:#fff;padding:10px 16px;border-radius:10px;z-index:99999;font-size:13px;display:none;max-width:90%}
+</style>
+
+<button id="menuBtn" aria-label="Menu"><span></span><span></span><span></span></button>
+<div id="menuOverlay"></div>
+<div id="menuDrawer">
+  <div class="menu-head"><span>👤 My Profile</span><button class="menu-close" id="menuClose">✕</button></div>
+
+  <div class="mn-profile">
+    <label class="mn-avatar" id="mnAvatar" for="mnPhotoInput">👤<span class="mn-cam">📷</span></label>
+    <input type="file" id="mnPhotoInput" accept="image/*" hidden>
+    <div>
+      <div id="mnName">Customer</div>
+      <div id="mnEmail"></div>
+      <div id="mnCid" title="Click to copy"></div>
+    </div>
+  </div>
+
+  <div class="mn-tabs">
+    <button class="active" data-tab="overview">📊 Overview</button>
+    <button data-tab="orders">📦 Orders</button>
+    <button data-tab="address">📍 Address</button>
+    <button data-tab="account">🔒 Account</button>
+  </div>
+
+  <div id="menuContent">
+    <!-- Overview -->
+    <div class="mn-pane active" data-pane="overview">
+      <div class="mn-cards">
+        <div class="mn-card"><small>💰 Balance</small><b id="ovBalance">$0.00</b></div>
+        <div class="mn-card"><small>📦 Total Orders</small><b id="ovTotal">0</b></div>
+        <div class="mn-card"><small>⏳ Pending</small><b id="ovPending">0</b></div>
+        <div class="mn-card"><small>📅 Member Since</small><b id="ovSince" style="font-size:14px">-</b></div>
+      </div>
+      <div class="mn-h">💳 Balance History</div>
+      <div id="ovHistory"></div>
+    </div>
+
+    <!-- Orders -->
+    <div class="mn-pane" data-pane="orders">
+      <div class="mn-h" style="margin-top:0">📦 My Orders</div>
+      <div id="orderList"></div>
+    </div>
+
+    <!-- Address -->
+    <div class="mn-pane" data-pane="address">
+      <div class="mn-h" style="margin-top:0">📍 Saved Addresses</div>
+      <div id="addrList"></div>
+      <div class="mn-h">➕ Add New Address</div>
+      <select class="mn-in" id="adLabel"><option>🏠 Home</option><option>🏪 Shop</option><option>🏢 Office</option><option>📌 Other</option></select>
+      <input class="mn-in" id="adName" placeholder="Recipient name">
+      <input class="mn-in" id="adPhone" placeholder="Phone number" inputmode="tel">
+      <textarea class="mn-in" id="adText" rows="3" placeholder="Full address (area, city, district)"></textarea>
+      <button class="mn-btn" id="adSave">Save Address</button>
+    </div>
+
+    <!-- Account -->
+    <div class="mn-pane" data-pane="account">
+      <div class="mn-h" style="margin-top:0">👤 Personal Information</div>
+      <input class="mn-in" id="acOwner" placeholder="Your name">
+      <input class="mn-in" id="acShop" placeholder="Shop / business name">
+      <input class="mn-in" id="acPhone" placeholder="Phone number" inputmode="tel">
+      <button class="mn-btn" id="acSave">Save Information</button>
+
+      <div class="mn-h">✉️ Change Email</div>
+      <input class="mn-in" id="acEmail" type="email" placeholder="New email address">
+      <button class="mn-btn light" id="acEmailBtn">Send Email Change Link</button>
+      <div id="acVerified" style="font-size:13px;margin-bottom:8px"></div>
+      <button class="mn-btn light" id="acVerifyBtn" style="display:none">Send Verification Link</button>
+
+      <div class="mn-h">🔑 Password</div>
+      <button class="mn-btn light" id="acResetBtn">Send Password Reset Link</button>
+
+      <div class="mn-h">🛡️ Two-Factor Authentication (2FA)</div>
+      <div class="mn-row" style="color:#888">Coming soon.</div>
+
+      <button class="mn-btn red" id="acLogout" style="margin-top:14px">🚪 Log Out</button>
+    </div>
+  </div>
+</div>
+<div id="mnToast"></div>
+
+<script type="module">
+import { getApp } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, sendPasswordResetEmail, sendEmailVerification, verifyBeforeUpdateEmail, signOut }
+  from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js";
+import { getDatabase, ref, onValue, update, set, push, remove }
+  from "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js";
+
+// Path where your orders are saved in Firebase. Assumed: orders/{uid}/{orderId}
+const ORDERS_PATH = "orders";
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+const fmtDate = (t) => {
+  if (!t) return "No date";
+  const d = new Date(typeof t === "number" ? t : (isNaN(t) ? t : Number(t)));
+  if (isNaN(d)) return String(t);
+  return d.toLocaleDateString("en-GB", {day:"2-digit", month:"short", year:"numeric"}) + ", " +
+         d.toLocaleTimeString("en-US", {hour:"2-digit", minute:"2-digit"});
+};
+function toast(text, ok = true) {
+  const t = $("mnToast"); t.textContent = text; t.style.background = ok ? "#16a34a" : "#e53935";
+  t.style.display = "block"; clearTimeout(toast._t); toast._t = setTimeout(() => t.style.display = "none", 3500);
+}
+
+// ---------- Menu open/close and tabs ----------
+const drawer = $("menuDrawer"), overlay = $("menuOverlay");
+const openMenu = () => { drawer.classList.add("show"); overlay.classList.add("show"); };
+const closeMenu = () => { drawer.classList.remove("show"); overlay.classList.remove("show"); };
+$("menuBtn").onclick = openMenu; overlay.onclick = closeMenu; $("menuClose").onclick = closeMenu;
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeMenu(); });
+document.querySelectorAll(".mn-tabs button").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".mn-tabs button").forEach(x => x.classList.toggle("active", x === b));
+  document.querySelectorAll(".mn-pane").forEach(p => p.classList.toggle("active", p.dataset.pane === b.dataset.tab));
+});
+
+// ---------- Wait until Firebase is initialized ----------
+let tries = 0;
+const wait = setInterval(() => {
+  try { const app = getApp(); clearInterval(wait); start(app); }
+  catch (e) { if (++tries > 40) { clearInterval(wait); console.error("Firebase app not found"); } }
+}, 150);
+
+function start(app) {
+  const auth = getAuth(app), db = getDatabase(app);
+  let user = null, customer = {}, profile = {}, stops = [];
+
+  const renderHeader = () => {
+    $("mnName").textContent = customer.ownerName || customer.shopName || "Customer";
+    $("mnEmail").textContent = user?.email || "";
+    $("mnCid").textContent = customer.customerId ? "🆔 ID: " + customer.customerId : "";
+    const av = $("mnAvatar");
+    if (profile.photo) { av.style.backgroundImage = `url(${profile.photo})`; av.childNodes[0].nodeValue = ""; }
+    else { av.style.backgroundImage = ""; av.childNodes[0].nodeValue = "👤"; }
+    $("ovSince").textContent = customer.createdAt ? fmtDate(customer.createdAt).split(",")[0] : "-";
+    $("acOwner").value = customer.ownerName || "";
+    $("acShop").value = customer.shopName || "";
+    $("acPhone").value = customer.phone || "";
+    const ver = user?.emailVerified;
+    $("acVerified").innerHTML = ver ? "✅ Email verified" : "⚠️ Email not verified yet";
+    $("acVerifyBtn").style.display = ver ? "none" : "block";
+  };
+
+  const renderAddresses = () => {
+    const list = profile.addresses || {}, def = profile.defaultAddress;
+    const keys = Object.keys(list);
+    $("addrList").innerHTML = keys.length ? keys.map(k => {
+      const a = list[k];
+      return `<div class="mn-row"><div class="top"><b>${esc(a.label)} ${k === def ? '<span class="mn-badge ok">Default</span>' : ""}</b>
+        <span><button class="mn-mini star" data-def="${k}">⭐ Set default</button> <button class="mn-mini" data-del="${k}">🗑 Delete</button></span></div>
+        <div>${esc(a.name)} • ${esc(a.phone)}</div><div class="date">${esc(a.text)}</div></div>`;
+    }).join("") : `<div class="mn-empty">No saved addresses</div>`;
+  };
+
+  const renderOrders = (orders) => {
+    $("ovTotal").textContent = orders.length;
+    $("ovPending").textContent = orders.filter(o => String(o.status || "").toLowerCase() === "pending").length;
+    $("orderList").innerHTML = orders.length ? orders.map(o => {
+      const st = String(o.status || "Pending");
+      return `<div class="mn-row"><div class="top"><b>${esc(o.title || o.name || "Product")}</b>
+        <span class="mn-badge ${st.toLowerCase() === "pending" ? "" : "ok"}">${esc(st)}</span></div>
+        ${o.originalPrice != null ? `<div>Price: $${esc(o.originalPrice)}</div>` : ""}
+        <div class="date">📅 ${fmtDate(o.createdAt || o.confirmedAt || o.time || o.date)}</div></div>`;
+    }).join("") : `<div class="mn-empty">No orders yet</div>`;
+  };
+
+  const listen = (path, cb) => stops.push(onValue(ref(db, path), cb, e => console.warn(path, e.code)));
+
+  onAuthStateChanged(auth, (u) => {
+    stops.forEach(s => s()); stops = []; user = u;
+    if (!u) return;
+    renderHeader();
+    listen("customers/" + u.uid, s => { customer = s.val() || {}; renderHeader(); });
+    listen("profiles/" + u.uid, s => { profile = s.val() || {}; renderHeader(); renderAddresses(); });
+    listen("balances/" + u.uid, s => { $("ovBalance").textContent = "$" + (Number(s.val()) || 0).toFixed(2); });
+    listen("balanceLogs/" + u.uid, s => {
+      const rows = Object.values(s.val() || {}).sort((a, b) => (b.at || 0) - (a.at || 0)).slice(0, 15);
+      $("ovHistory").innerHTML = rows.length ? rows.map(r =>
+        `<div class="mn-row"><div class="top"><b style="color:#16a34a">+ $${Number(r.amount).toFixed(2)}</b><span class="date">${fmtDate(r.at)}</span></div></div>`).join("")
+        : `<div class="mn-empty">No balance added yet</div>`;
+    });
+    listen(ORDERS_PATH + "/" + u.uid, s => {
+      const orders = Object.values(s.val() || {}).filter(o => o && typeof o === "object")
+        .sort((a, b) => new Date(b.createdAt || b.confirmedAt || b.time || b.date || 0) - new Date(a.createdAt || a.confirmedAt || a.time || a.date || 0));
+      renderOrders(orders);
+    });
+  });
+
+  // ---------- Profile photo (resized and saved in the Database) ----------
   $("mnPhotoInput").onchange = (e) => {
     const f = e.target.files[0]; if (!f || !user) return;
     const img = new Image(), rd = new FileReader();
@@ -510,54 +736,58 @@ function start(app) {
       const S = 220, c = document.createElement("canvas"); c.width = c.height = S;
       const m = Math.min(img.width, img.height);
       c.getContext("2d").drawImage(img, (img.width - m) / 2, (img.height - m) / 2, m, m, 0, 0, S, S);
-      try { await set(ref(db, "profiles/" + user.uid + "/photo"), c.toDataURL("image/jpeg", 0.8)); toast("✅ ছবি সংরক্ষিত হয়েছে"); }
-      catch (err) { toast("ছবি সেভ হয়নি: " + err.message, false); }
+      try { await set(ref(db, "profiles/" + user.uid + "/photo"), c.toDataURL("image/jpeg", 0.8)); toast("✅ Photo saved"); }
+      catch (err) { toast("Photo not saved: " + err.message, false); }
     };
     rd.readAsDataURL(f); e.target.value = "";
   };
 
-  $("mnCid").onclick = () => { if (customer.customerId) { navigator.clipboard?.writeText(String(customer.customerId)); toast("ID কপি হয়েছে"); } };
+  $("mnCid").onclick = () => { if (customer.customerId) { navigator.clipboard?.writeText(String(customer.customerId)); toast("ID copied"); } };
 
-  // ---------- ঠিকানা ----------
+  // ---------- Address ----------
   $("adSave").onclick = async () => {
     const a = { label: $("adLabel").value, name: $("adName").value.trim(), phone: $("adPhone").value.trim(), text: $("adText").value.trim() };
-    if (!a.name || !a.phone || !a.text) return toast("নাম, ফোন ও ঠিকানা দিন", false);
+    if (!a.name || !a.phone || !a.text) return toast("Please enter name, phone and address", false);
     try {
       const r = push(ref(db, "profiles/" + user.uid + "/addresses")); await set(r, a);
       if (!profile.defaultAddress) await set(ref(db, "profiles/" + user.uid + "/defaultAddress"), r.key);
-      ["adName", "adPhone", "adText"].forEach(i => $(i).value = ""); toast("✅ ঠিকানা সংরক্ষিত হয়েছে");
+      ["adName", "adPhone", "adText"].forEach(i => $(i).value = ""); toast("✅ Address saved");
     } catch (e) { toast("Error: " + e.message, false); }
   };
   $("addrList").onclick = async (e) => {
     const d = e.target.dataset; if (!user) return;
-    if (d.del && confirm("ঠিকানাটি মুছবেন?")) {
+    if (d.del && confirm("Delete this address?")) {
       await remove(ref(db, "profiles/" + user.uid + "/addresses/" + d.del));
       if (profile.defaultAddress === d.del) await remove(ref(db, "profiles/" + user.uid + "/defaultAddress"));
     }
-    if (d.def) { await set(ref(db, "profiles/" + user.uid + "/defaultAddress"), d.def); toast("ডিফল্ট ঠিকানা বদলেছে"); }
+    if (d.def) { await set(ref(db, "profiles/" + user.uid + "/defaultAddress"), d.def); toast("Default address updated"); }
   };
 
-  // ---------- অ্যাকাউন্ট ----------
+  // ---------- Account ----------
   $("acSave").onclick = async () => {
     try {
       await update(ref(db, "customers/" + user.uid), {
         ownerName: $("acOwner").value.trim(), shopName: $("acShop").value.trim(), phone: $("acPhone").value.trim() });
-      toast("✅ তথ্য সংরক্ষিত হয়েছে");
+      toast("✅ Information saved");
     } catch (e) { toast("Error: " + e.message, false); }
   };
   $("acEmailBtn").onclick = async () => {
-    const em = $("acEmail").value.trim(); if (!em) return toast("নতুন ইমেইল লিখুন", false);
-    try { await verifyBeforeUpdateEmail(user, em); toast("✅ নতুন ইমেইলে লিংক পাঠানো হয়েছে। লিংকে ক্লিক করলে ইমেইল বদলাবে"); }
-    catch (e) { toast(e.code === "auth/requires-recent-login" ? "নিরাপত্তার জন্য লগআউট করে আবার লগইন করে চেষ্টা করুন" : "Error: " + e.message, false); }
+    const em = $("acEmail").value.trim(); if (!em) return toast("Enter the new email", false);
+    try { await verifyBeforeUpdateEmail(user, em); toast("✅ Link sent to the new email. Click it to confirm the change"); }
+    catch (e) { toast(e.code === "auth/requires-recent-login" ? "For security, please log out, log in again and retry" : "Error: " + e.message, false); }
   };
   $("acVerifyBtn").onclick = async () => {
-    try { await sendEmailVerification(user); toast("✅ ভেরিফিকেশন লিংক পাঠানো হয়েছে"); } catch (e) { toast("Error: " + e.message, false); }
+    try { await sendEmailVerification(user); toast("✅ Verification link sent"); } catch (e) { toast("Error: " + e.message, false); }
   };
   $("acResetBtn").onclick = async () => {
-    try { await sendPasswordResetEmail(auth, user.email); toast("✅ " + user.email + " ঠিকানায় রিসেট লিংক গেছে"); }
+    try { await sendPasswordResetEmail(auth, user.email); toast("✅ Reset link sent to " + user.email); }
     catch (e) { toast("Error: " + e.message, false); }
   };
-  $("acLogout").onclick = async () => { if (confirm("লগআউট করবেন?")) { await signOut(auth); location.reload(); } };
+  $("acLogout").onclick = async () => {
+    if (!confirm("Do you want to log out?")) return;
+    try { await signOut(auth); location.reload(); }
+    catch (e) { toast("Logout failed: " + e.message, false); }
+  };
 }
 </script>
 </body>
