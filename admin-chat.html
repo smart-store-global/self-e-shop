@@ -254,7 +254,9 @@ $('adminFile').addEventListener('change', async (e) => {
 });
 
 // =====================================================================
-//  ORDER PUSH + ORDER LIST  
+//  ORDER PUSH + ORDER LIST  (admin-chat.html এর শেষ লাইনের নিচে পেস্ট করুন)
+//  পেস্ট করার জায়গা: <script type="module"> এর ভেতরে, script এর শেষ ট্যাগ এর ঠিক আগে
+//  পুরোনো কোডের কিছুই বদলাতে হবে না।
 // =====================================================================
 
 // স্টকের তালিকা: ৩৭ নম্বর বা তার পরের প্রডাক্ট থাকলে নিচে একই ধাঁচে লাইন যোগ করুন
@@ -540,6 +542,230 @@ onAuthStateChanged(auth, (user) => {
     refreshOrdersBtn();
     if (ordersModal.overlay.style.display === 'flex') renderOrdersList();
   }, (err) => console.error('Orders load failed:', err.code));
+});
+
+// =====================================================================
+//  SEND PRODUCTS PANEL  (admin-chat.html এর <script type="module"> এর ভেতরে,
+//  admin-order-add.js কোডের নিচে এবং script এর শেষ ট্যাগ এর ঠিক আগে পেস্ট করুন)
+//
+//  কাজ: All Chats হেডারের নিচে বড় একটা বাটন আসবে — "🛒 Send Products to Customer"।
+//  চাপলে একই জায়গায় দেখাবে:
+//    ১) গ্রাহক বাছার সার্চ বক্স (ID / ইমেইল / দোকানের নাম)
+//    ২) প্রডাক্ট লিস্ট (টিক দিয়ে স্টকের পণ্য বাছুন)
+//    ৩) Send বাটন → গ্রাহকের Order বাটনে চলে যাবে
+//  নোট: এটা admin-order-add.js এর ORDER_PRODUCTS ও makeOrderModal ব্যবহার করে,
+//  তাই admin-order-add.js আগে বসানো থাকতে হবে।
+// =====================================================================
+
+const spStyle = document.createElement('style');
+spStyle.textContent = `
+.sp-open{display:block;width:calc(100% - 20px);margin:10px;padding:11px;background:#ff5722;color:#fff;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-size:14px;}
+.sp-to{padding:10px;border:1px solid #fed7c7;border-radius:8px;background:#fff7f3;margin-bottom:10px;}
+.sp-to-label{font-size:12px;color:#64748b;margin-bottom:4px;}
+.sp-chosen{font-weight:bold;font-size:14px;color:#ff5722;word-break:break-all;margin-bottom:6px;}
+.sp-results{display:none;max-height:180px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:6px;margin-top:6px;background:#fff;}
+.sp-item{padding:7px 10px;border-bottom:1px solid #f1f5f9;cursor:pointer;font-size:12px;}
+.sp-item:hover{background:#fff3ee;}
+.sp-item b{font-size:13px;word-break:break-all;}
+.sp-thumb{width:38px;height:38px;object-fit:cover;border-radius:6px;background:#f1f5f9;flex-shrink:0;}
+`;
+document.head.appendChild(spStyle);
+
+const spModal = makeOrderModal();
+spModal.title.textContent = 'Send products to customer';
+
+let spCustomers = [];
+let spChosen = null;            // { uid, label, customerId }
+let spStopCustomers = null;
+const spSelected = new Set();
+
+// ---------- UI elements ----------
+const spTo = document.createElement('div'); spTo.className = 'sp-to';
+const spToLabel = document.createElement('div'); spToLabel.className = 'sp-to-label'; spToLabel.textContent = 'Send to:';
+const spChosenText = document.createElement('div'); spChosenText.className = 'sp-chosen';
+const spCustInput = document.createElement('input');
+spCustInput.className = 'ord-search';
+spCustInput.style.marginBottom = '0';
+spCustInput.placeholder = '🔎 Search customer: ID / email / shop name...';
+const spCustResults = document.createElement('div'); spCustResults.className = 'sp-results';
+spTo.append(spToLabel, spChosenText, spCustInput, spCustResults);
+
+const spProdSearch = document.createElement('input');
+spProdSearch.className = 'ord-search';
+spProdSearch.placeholder = 'Search product name or ID...';
+const spProdList = document.createElement('div');
+
+const spCount = document.createElement('span');
+const spSendBtn = document.createElement('button');
+spSendBtn.className = 'ord-btn';
+spSendBtn.textContent = 'Send to customer';
+
+spModal.body.append(spTo, spProdSearch, spProdList);
+spModal.foot.append(spCount, spSendBtn);
+
+// ---------- customer picker ----------
+function spFindCustomers() {
+  const q = spCustInput.value.trim().toLowerCase();
+  return spCustomers.filter((c) =>
+    !q || [c.customerId, c.email, c.shopName, c.ownerName].some((v) => String(v || '').toLowerCase().includes(q))
+  );
+}
+
+function spRefreshChosen() {
+  spChosenText.textContent = spChosen
+    ? '✅ ' + spChosen.label + (spChosen.customerId ? '  (ID ' + spChosen.customerId + ')' : '')
+    : 'No customer selected — search below';
+}
+
+function spRenderCustomers() {
+  spCustResults.innerHTML = '';
+  spCustResults.style.display = 'block';
+  const matches = spFindCustomers();
+  if (!matches.length) {
+    const e = document.createElement('div');
+    e.className = 'sp-item'; e.style.color = '#94a3b8';
+    e.textContent = spCustomers.length ? 'No customer found' : 'No customers loaded';
+    spCustResults.appendChild(e);
+    return matches;
+  }
+  matches.slice(0, 100).forEach((c) => {
+    const item = document.createElement('div'); item.className = 'sp-item';
+    const b = document.createElement('b'); b.textContent = c.email || c.uid;
+    const s = document.createElement('div'); s.style.color = '#64748b';
+    s.textContent = 'ID ' + (c.customerId || '-') + (c.shopName ? '  •  ' + c.shopName : '');
+    item.append(b, s);
+    item.onclick = () => {
+      spChosen = { uid: c.uid, label: c.email || String(c.customerId || c.uid), customerId: c.customerId };
+      spCustInput.value = '';
+      spCustResults.style.display = 'none';
+      spRefreshChosen();
+    };
+    spCustResults.appendChild(item);
+  });
+  return matches;
+}
+spCustInput.addEventListener('focus', spRenderCustomers);
+spCustInput.addEventListener('input', spRenderCustomers);
+spCustInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    const m = spFindCustomers();
+    if (m.length) {
+      const c = m[0];
+      spChosen = { uid: c.uid, label: c.email || String(c.customerId || c.uid), customerId: c.customerId };
+      spCustInput.value = '';
+      spCustResults.style.display = 'none';
+      spRefreshChosen();
+    }
+  }
+});
+
+// ---------- product list ----------
+function spRenderProducts() {
+  const q = spProdSearch.value.trim().toLowerCase();
+  spProdList.innerHTML = '';
+  ORDER_PRODUCTS
+    .filter((p) => !q || p.title.toLowerCase().includes(q) || String(p.id) === q)
+    .forEach((p) => {
+      const row = document.createElement('div'); row.className = 'ord-row';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.id = 'spp-' + p.id; cb.checked = spSelected.has(p.id);
+      cb.onchange = () => {
+        if (cb.checked) spSelected.add(p.id); else spSelected.delete(p.id);
+        spCount.textContent = spSelected.size + ' selected';
+      };
+      const im = document.createElement('img');
+      im.className = 'sp-thumb'; im.src = p.img;
+      im.onerror = () => { im.style.visibility = 'hidden'; };
+      const lb = document.createElement('label');
+      lb.htmlFor = cb.id;
+      lb.textContent = '#' + p.id + '  ' + p.title + (p.free ? '  (Free)' : '');
+      const pr = document.createElement('span');
+      pr.className = 'ord-price';
+      pr.textContent = '$' + p.originalPrice.toFixed(2);
+      row.append(cb, im, lb, pr);
+      spProdList.appendChild(row);
+    });
+  spCount.textContent = spSelected.size + ' selected';
+}
+spProdSearch.addEventListener('input', spRenderProducts);
+
+// ---------- open button (All Chats হেডারের নিচে) ----------
+const spOpenBtn = document.createElement('button');
+spOpenBtn.className = 'sp-open';
+spOpenBtn.textContent = '🛒 Send Products to Customer';
+const spListHead = document.querySelector('#chat-list h3');
+spListHead.parentNode.insertBefore(spOpenBtn, spListHead.nextSibling);
+
+spOpenBtn.onclick = () => {
+  spSelected.clear();
+  spProdSearch.value = '';
+  spCustInput.value = '';
+  spCustResults.style.display = 'none';
+  // কোনো চ্যাট খোলা থাকলে সেই গ্রাহককে আগেই বেছে দেওয়া হবে
+  if (currentChat) {
+    const c = spCustomers.find((x) => x.uid === currentChat);
+    spChosen = c
+      ? { uid: c.uid, label: c.email || String(c.customerId || c.uid), customerId: c.customerId }
+      : { uid: currentChat, label: $('chat-title').textContent };
+  } else {
+    spChosen = null;
+  }
+  spRefreshChosen();
+  spRenderProducts();
+  spModal.open();
+};
+
+// ---------- send ----------
+spSendBtn.onclick = async () => {
+  if (!spChosen) { alert('Select a customer first'); return; }
+  if (spSelected.size === 0) { alert('Select at least one product'); return; }
+  const uid = spChosen.uid;
+  const items = ORDER_PRODUCTS.filter((p) => spSelected.has(p.id));
+  if (!confirm('Send ' + items.length + ' product(s) to ' + spChosen.label + '?')) return;
+  spSendBtn.disabled = true;
+  try {
+    const now = Date.now();
+    const updates = {};
+    items.forEach((p) => {
+      const key = push(ref(db, 'assignedOrders/' + uid)).key;
+      updates['assignedOrders/' + uid + '/' + key] = {
+        id: p.id, title: p.title, originalPrice: p.originalPrice,
+        img: p.img, free: p.free, status: 'Pending', time: now
+      };
+    });
+    const text = '📦 ' + items.length + ' product(s) added to your Order button. Please check and confirm.';
+    const msgKey = push(ref(db, 'chats/' + uid + '/messages')).key;
+    updates['chats/' + uid + '/messages/' + msgKey] = { sender: 'admin', time: now, text: text };
+    updates['chatMeta/' + uid + '/lastMessage'] = 'You: ' + text;
+    updates['chatMeta/' + uid + '/lastTime'] = now;
+    // চ্যাট তালিকায় নাম না থাকলে ইমেইল দিয়ে নাম বসানো
+    const existingName = await new Promise((res) => {
+      onValue(ref(db, 'chatMeta/' + uid + '/name'), (s) => res(s.val()), () => res(null), { onlyOnce: true });
+    });
+    if (!existingName) updates['chatMeta/' + uid + '/name'] = spChosen.label;
+    await update(ref(db), updates);
+    spSelected.clear();
+    spModal.close();
+    alert('Sent ' + items.length + ' product(s) to ' + spChosen.label);
+  } catch (e) {
+    console.error('Send products failed:', e);
+    alert('Failed to send');
+  }
+  spSendBtn.disabled = false;
+};
+
+// ---------- load all registered customers ----------
+onAuthStateChanged(auth, (user) => {
+  if (spStopCustomers) { spStopCustomers(); spStopCustomers = null; }
+  spCustomers = [];
+  if (!user || user.uid !== ADMIN_UID) return;
+  spStopCustomers = onValue(ref(db, 'customers'), (snap) => {
+    const arr = [];
+    snap.forEach((c) => { arr.push({ uid: c.key, ...(c.val() || {}) }); });
+    arr.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+    spCustomers = arr;
+    if (spCustResults.style.display === 'block') spRenderCustomers();
+  }, (err) => console.error('Customers load failed:', err.code));
 });
 </script>
 </body>
