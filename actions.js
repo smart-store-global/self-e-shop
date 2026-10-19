@@ -645,81 +645,96 @@ onAuthStateChanged(orderAuthRef, (user) => {
 window.confirmAssignedOrder = async function (index) {
   const item = userAssignedOrders[index];
   const user = orderAuthRef.currentUser;
-  
+
   if (!item || !user || item.status !== "Pending") return;
 
-  // Validate wholesale price
-  const price = Math.round(Number(item.wholesalePrice) * 100) / 100;
+  // Change wholesalePrice if your database uses a different field name.
+  const rawPrice = String(item.wholesalePrice ?? "").replace(/[$,\s]/g, "");
+  const price = Math.round(Number(rawPrice) * 100) / 100;
+
   if (!Number.isFinite(price) || price <= 0) {
-    alert("Order price is unavailable.");
+    alert("The wholesale price is unavailable.");
     return;
   }
 
-  const orderRef = ref(orderDbRef, `assignedOrders/${user.uid}/${item._key}`);
+  if (!confirm(`Purchase this product for $${price.toFixed(2)}?`)) return;
+
+  const orderRef = ref(
+    orderDbRef,
+    `assignedOrders/${user.uid}/${item._key}`
+  );
   const balanceRef = ref(orderDbRef, `balances/${user.uid}`);
-  
+
   let orderClaimed = false;
   let balanceDeducted = false;
 
   try {
-    // 1. Check balance first and deduct if sufficient
-    let insufficientBalance = false;
-    
-    const balanceTx = await runTransaction(balanceRef, currentBalance => {
-      const balance = Number(currentBalance) || 0;
-      if (balance < price) {
-        insufficientBalance = true; // Triggers transaction abort if balance is low
-        return; 
-      }
-      return Math.round((balance - price) * 100) / 100;
-    });
-
-    // Alert user if balance is insufficient or update fails
-    if (!balanceTx.committed) {
-      if (insufficientBalance) {
-        alert("Insufficient balance. You do not have enough dollars in your account.");
-      } else {
-        alert("Could not update the balance. Please try again.");
-      }
-      return;
-    }
-    
-    balanceDeducted = true; // FIXED: Fixed the typo here
-
-    // 2. Lock the order status to 'Processing' to prevent double-clicks
+    // Prevent the same order from being processed twice.
     const claimTx = await runTransaction(orderRef, currentOrder => {
       if (!currentOrder || currentOrder.status !== "Pending") return;
-      return { ...currentOrder, status: "Processing" };
+
+      return {
+        ...currentOrder,
+        status: "Processing"
+      };
     });
 
     if (!claimTx.committed) {
       alert("This order is already being processed or is no longer pending.");
-      // Refund the money since the balance was deducted but order processing failed
-      await runTransaction(balanceRef, currentBalance => {
-        const balance = Number(currentBalance) || 0;
-        return Math.round((balance + price) * 100) / 100;
-      });
       return;
     }
-    
+
     orderClaimed = true;
 
-    // 3. Finalize order status to 'Confirmed' and set the shipment message
+    let insufficientBalance = false;
+
+    // Deduct the wholesale price only if the balance is sufficient.
+    const balanceTx = await runTransaction(balanceRef, currentBalance => {
+      const balance = Number(currentBalance) || 0;
+
+      if (balance < price) {
+        insufficientBalance = true;
+        return; // Cancel the transaction; no money is deducted.
+      }
+
+      return Math.round((balance - price) * 100) / 100;
+    });
+
+    if (!balanceTx.committed) {
+      await update(orderRef, { status: "Pending" });
+      orderClaimed = false;
+
+      alert(
+        insufficientBalance
+          ? "Insufficient balance. Your balance does not have enough dollars for this purchase."
+          : "Could not update the balance. Please try again."
+      );
+      return;
+    }
+
+    balanceDeducted = true;
+
     try {
       await update(orderRef, {
         status: "Confirmed",
         statusMessage: "Product is being sent for shipment.",
         confirmedAt: Date.now()
       });
-      orderClaimed = false; // Successfully confirmed
+
+      orderClaimed = false;
     } catch (orderError) {
-      // Try to refund the money if the order status update fails
+      // Refund the balance if the order could not be updated.
       let refundCommitted = false;
+
       try {
         const refundTx = await runTransaction(balanceRef, currentBalance => {
-          const balance = Number(currentBalance) || 0;
+          const balance = Number(currentBalance);
+
+          if (!Number.isFinite(balance)) return;
+
           return Math.round((balance + price) * 100) / 100;
         });
+
         refundCommitted = refundTx.committed;
       } catch (refundError) {
         console.error("Refund transaction failed:", refundError);
@@ -727,35 +742,38 @@ window.confirmAssignedOrder = async function (index) {
 
       if (!refundCommitted) {
         console.error("Order update failed and refund needs review:", orderError);
-        alert("The order could not be updated and the refund could not be verified. Please contact support before retrying.");
+        alert(
+          "The order could not be updated and the refund could not be verified. Please contact support before retrying."
+        );
         return;
       }
-      
+
       balanceDeducted = false;
       await update(orderRef, { status: "Pending" });
       orderClaimed = false;
+
       throw orderError;
     }
 
-    // 4. Log the transaction history
+    // Record the debit in the balance log.
     try {
-      await set(push(ref(orderDbRef, `balanceLogs/${user.uid}`)), {
-        amount: -price,
-        type: "order_purchase",
-        orderKey: item._key,
-        at: serverTimestamp()
-      });
+      await set(
+        push(ref(orderDbRef, `balanceLogs/${user.uid}`)),
+        {
+          amount: -price,
+          type: "order_purchase",
+          orderKey: item._key,
+          at: serverTimestamp()
+        }
+      );
     } catch (logError) {
       console.error("Balance log write failed:", logError);
     }
 
-    // Final success message
     alert("Payment received. Product is being sent for shipment.");
-
   } catch (error) {
     console.error("Purchase confirmation failed:", error);
-    
-    // Reset order status back to Pending if code crashes mid-execution
+
     if (orderClaimed && !balanceDeducted) {
       try {
         await update(orderRef, { status: "Pending" });
@@ -763,7 +781,7 @@ window.confirmAssignedOrder = async function (index) {
         console.error("Could not reset the order status:", resetError);
       }
     }
-    
+
     alert(
       balanceDeducted
         ? "The purchase may have been charged, but the order status could not be verified. Please contact support before retrying."
