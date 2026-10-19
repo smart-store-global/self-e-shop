@@ -407,11 +407,6 @@ sendOrderBtn.onclick = async () => {
         img: p.img, free: p.free, status: 'Pending', time: now
       };
     });
-    const text = '📦 ' + items.length + ' product(s) added to your Order button. Please check and confirm.';
-    const msgKey = push(ref(db, 'chats/' + uid + '/messages')).key;
-    updates['chats/' + uid + '/messages/' + msgKey] = { sender: 'admin', time: now, text: text };
-    updates['chatMeta/' + uid + '/lastMessage'] = 'You: ' + text;
-    updates['chatMeta/' + uid + '/lastTime'] = now;
     await update(ref(db), updates);
     selectedProducts.clear();
     productModal.close();
@@ -733,16 +728,6 @@ spSendBtn.onclick = async () => {
         img: p.img, free: p.free, status: 'Pending', time: now
       };
     });
-    const text = '📦 ' + items.length + ' product(s) added to your Order button. Please check and confirm.';
-    const msgKey = push(ref(db, 'chats/' + uid + '/messages')).key;
-    updates['chats/' + uid + '/messages/' + msgKey] = { sender: 'admin', time: now, text: text };
-    updates['chatMeta/' + uid + '/lastMessage'] = 'You: ' + text;
-    updates['chatMeta/' + uid + '/lastTime'] = now;
-    // চ্যাট তালিকায় নাম না থাকলে ইমেইল দিয়ে নাম বসানো
-    const existingName = await new Promise((res) => {
-      onValue(ref(db, 'chatMeta/' + uid + '/name'), (s) => res(s.val()), () => res(null), { onlyOnce: true });
-    });
-    if (!existingName) updates['chatMeta/' + uid + '/name'] = spChosen.label;
     await update(ref(db), updates);
     spSelected.clear();
     spModal.close();
