@@ -324,71 +324,71 @@
     <label class="mn-avatar" id="mnAvatar" for="mnPhotoInput">👤<span class="mn-cam">📷</span></label>
     <input type="file" id="mnPhotoInput" accept="image/*" hidden>
     <div>
-      <div id="mnName">গ্রাহক</div>
+      <div id="mnName">Customer</div>
       <div id="mnEmail"></div>
-      <div id="mnCid" title="কপি করতে ক্লিক করুন"></div>
+      <div id="mnCid" title="Click to copy"></div>
     </div>
   </div>
 
   <div class="mn-tabs">
-    <button class="active" data-tab="overview">📊 ওভারভিউ</button>
-    <button data-tab="orders">📦 অর্ডার</button>
-    <button data-tab="address">📍 ঠিকানা</button>
-    <button data-tab="account">🔒 অ্যাকাউন্ট</button>
+    <button class="active" data-tab="overview">📊 Overview</button>
+    <button data-tab="orders">📦 Order</button>
+    <button data-tab="address">📍 Address</button>
+    <button data-tab="account">🔒 Account</button>
   </div>
 
   <div id="menuContent">
-    <!-- ওভারভিউ -->
+    <!-- overview -->
     <div class="mn-pane active" data-pane="overview">
       <div class="mn-cards">
-        <div class="mn-card"><small>💰 ব্যালেন্স</small><b id="ovBalance">$0.00</b></div>
-        <div class="mn-card"><small>📦 মোট অর্ডার</small><b id="ovTotal">0</b></div>
+        <div class="mn-card"><small>💰 Balance</small><b id="ovBalance">$0.00</b></div>
+        <div class="mn-card"><small>📦 Total orders</small><b id="ovTotal">0</b></div>
         <div class="mn-card"><small>⏳ Pending</small><b id="ovPending">0</b></div>
-        <div class="mn-card"><small>📅 সদস্য হয়েছেন</small><b id="ovSince" style="font-size:14px">-</b></div>
+        <div class="mn-card"><small>📅 Has become a member</small><b id="ovSince" style="font-size:14px">-</b></div>
       </div>
-      <div class="mn-h">💳 ব্যালেন্স হিস্ট্রি</div>
+      <div class="mn-h">💳 Balance History</div>
       <div id="ovHistory"></div>
     </div>
 
-    <!-- অর্ডার লিস্ট -->
+    <!-- Order List -->
     <div class="mn-pane" data-pane="orders">
-      <div class="mn-h" style="margin-top:0">📦 আমার অর্ডার (তারিখসহ)</div>
+      <div class="mn-h" style="margin-top:0">📦 My order (with date)</div>
       <div id="orderList"></div>
     </div>
 
-    <!-- ঠিকানা -->
+    <!-- Address -->
     <div class="mn-pane" data-pane="address">
-      <div class="mn-h" style="margin-top:0">📍 সংরক্ষিত ঠিকানা</div>
+      <div class="mn-h" style="margin-top:0">📍Saved address</div>
       <div id="addrList"></div>
-      <div class="mn-h">➕ নতুন ঠিকানা যোগ করুন</div>
-      <select class="mn-in" id="adLabel"><option>🏠 বাড়ি</option><option>🏪 দোকান</option><option>🏢 অফিস</option><option>📌 অন্যান্য</option></select>
-      <input class="mn-in" id="adName" placeholder="প্রাপকের নাম">
-      <input class="mn-in" id="adPhone" placeholder="ফোন নম্বর" inputmode="tel">
-      <textarea class="mn-in" id="adText" rows="3" placeholder="পূর্ণ ঠিকানা (গ্রাম/এলাকা, থানা, জেলা)"></textarea>
-      <button class="mn-btn" id="adSave">ঠিকানা সংরক্ষণ করুন</button>
+      <div class="mn-h">➕ Add a new address</div>
+      <select class="mn-in" id="adLabel"><option>🏠 Home</option><option>🏪 Shop</option><option>🏢 Office</option><option>📌 Others</option></select>
+      <input class="mn-in" id="adName" placeholder="Customer Name">
+      <input class="mn-in" id="adPhone" placeholder="Phone number" inputmode="tel">
+      <textarea class="mn-in" id="adText" rows="3" placeholder="Full address"></textarea>
+      <button class="mn-btn" id="adSave">Save the address</button>
     </div>
 
-    <!-- অ্যাকাউন্ট -->
+    <!-- Account -->
     <div class="mn-pane" data-pane="account">
-      <div class="mn-h" style="margin-top:0">👤 ব্যক্তিগত তথ্য</div>
-      <input class="mn-in" id="acOwner" placeholder="আপনার নাম">
-      <input class="mn-in" id="acShop" placeholder="দোকান/ব্যবসার নাম">
-      <input class="mn-in" id="acPhone" placeholder="ফোন নম্বর" inputmode="tel">
-      <button class="mn-btn" id="acSave">তথ্য সংরক্ষণ করুন</button>
+      <div class="mn-h" style="margin-top:0">👤 Personal Information</div>
+      <input class="mn-in" id="acOwner" placeholder="Your name">
+      <input class="mn-in" id="acShop" placeholder="Shop/Business Name">
+      <input class="mn-in" id="acPhone" placeholder="Phone number" inputmode="tel">
+      <button class="mn-btn" id="acSave">Save the information</button>
 
-      <div class="mn-h">✉️ ইমেইল পরিবর্তন</div>
-      <input class="mn-in" id="acEmail" type="email" placeholder="নতুন ইমেইল">
-      <button class="mn-btn light" id="acEmailBtn">ইমেইল পরিবর্তনের লিংক পাঠান</button>
+      <div class="mn-h">✉️ Change Email</div>
+      <input class="mn-in" id="acEmail" type="email" placeholder="New Email">
+      <button class="mn-btn light" id="acEmailBtn">Send a link to change the email address</button>
       <div id="acVerified" style="font-size:13px;margin-bottom:8px"></div>
-      <button class="mn-btn light" id="acVerifyBtn" style="display:none">ইমেইল ভেরিফাই করার লিংক পাঠান</button>
+      <button class="mn-btn light" id="acVerifyBtn" style="display:none">Send the email verification link.</button>
 
-      <div class="mn-h">🔑 পাসওয়ার্ড</div>
-      <button class="mn-btn light" id="acResetBtn">পাসওয়ার্ড রিসেট লিংক পাঠান</button>
+      <div class="mn-h">🔑 Password</div>
+      <button class="mn-btn light" id="acResetBtn">Send password reset link</button>
 
-      <div class="mn-h">🛡️ টু-ফ্যাক্টর অথেনটিকেশন (2FA)</div>
+      <div class="mn-h">🛡️ Two-factor authentication (2FA)</div>
       <div class="mn-row" style="color:#888">শীঘ্রই চালু হবে। এর জন্য Firebase-এ আলাদা সেটআপ লাগে।</div>
 
-      <button class="mn-btn red" id="acLogout" style="margin-top:14px">🚪 লগআউট</button>
+      <button class="mn-btn red" id="acLogout" style="margin-top:14px">🚪 Log out</button>
     </div>
   </div>
 </div>
@@ -433,7 +433,7 @@ document.querySelectorAll(".mn-tabs button").forEach(b => b.onclick = () => {
 let tries = 0;
 const wait = setInterval(() => {
   try { const app = getApp(); clearInterval(wait); start(app); }
-  catch (e) { if (++tries > 40) { clearInterval(wait); console.error("Firebase app পাওয়া যায়নি"); } }
+  catch (e) { if (++tries > 40) { clearInterval(wait); console.error("Firebase app Not found"); } }
 }, 150);
 
 function start(app) {
@@ -441,7 +441,7 @@ function start(app) {
   let user = null, customer = {}, profile = {}, stops = [];
 
   const renderHeader = () => {
-    $("mnName").textContent = customer.ownerName || customer.shopName || "গ্রাহক";
+    $("mnName").textContent = customer.ownerName || customer.shopName || "Customer";
     $("mnEmail").textContent = user?.email || "";
     $("mnCid").textContent = customer.customerId ? "🆔 ID: " + customer.customerId : "";
     const av = $("mnAvatar");
@@ -452,7 +452,7 @@ function start(app) {
     $("acShop").value = customer.shopName || "";
     $("acPhone").value = customer.phone || "";
     const ver = user?.emailVerified;
-    $("acVerified").innerHTML = ver ? "✅ ইমেইল ভেরিফাইড" : "⚠️ ইমেইল এখনো ভেরিফাই হয়নি";
+    $("acVerified").innerHTML = ver ? "✅ Email verified" : "⚠️ Email has not been verified yet";
     $("acVerifyBtn").style.display = ver ? "none" : "block";
   };
 
@@ -461,10 +461,10 @@ function start(app) {
     const keys = Object.keys(list);
     $("addrList").innerHTML = keys.length ? keys.map(k => {
       const a = list[k];
-      return `<div class="mn-row"><div class="top"><b>${esc(a.label)} ${k === def ? '<span class="mn-badge ok">ডিফল্ট</span>' : ""}</b>
-        <span><button class="mn-mini star" data-def="${k}">⭐ ডিফল্ট</button> <button class="mn-mini" data-del="${k}">🗑 মুছুন</button></span></div>
+      return `<div class="mn-row"><div class="top"><b>${esc(a.label)} ${k === def ? '<span class="mn-badge ok">Default</span>' : ""}</b>
+        <span><button class="mn-mini star" data-def="${k}">⭐ Default</button> <button class="mn-mini" data-del="${k}">🗑 মুছুন</button></span></div>
         <div>${esc(a.name)} • ${esc(a.phone)}</div><div class="date">${esc(a.text)}</div></div>`;
-    }).join("") : `<div class="mn-empty">কোনো ঠিকানা সংরক্ষিত নেই</div>`;
+    }).join("") : `<div class="mn-empty">No address is saved</div>`;
   };
 
   const renderOrders = (orders) => {
@@ -472,11 +472,11 @@ function start(app) {
     $("ovPending").textContent = orders.filter(o => String(o.status || "").toLowerCase() === "pending").length;
     $("orderList").innerHTML = orders.length ? orders.map(o => {
       const st = String(o.status || "Pending");
-      return `<div class="mn-row"><div class="top"><b>${esc(o.title || o.name || "পণ্য")}</b>
+      return `<div class="mn-row"><div class="top"><b>${esc(o.title || o.name || "Product")}</b>
         <span class="mn-badge ${st.toLowerCase() === "pending" ? "" : "ok"}">${esc(st)}</span></div>
         ${o.originalPrice != null ? `<div>দাম: $${esc(o.originalPrice)}</div>` : ""}
         <div class="date">📅 ${fmtDate(o.createdAt || o.confirmedAt || o.time || o.date)}</div></div>`;
-    }).join("") : `<div class="mn-empty">এখনো কোনো অর্ডার নেই</div>`;
+    }).join("") : `<div class="mn-empty">There are no orders yet</div>`;
   };
 
   const listen = (path, cb) => stops.push(onValue(ref(db, path), cb, e => console.warn(path, e.code)));
@@ -492,7 +492,7 @@ function start(app) {
       const rows = Object.values(s.val() || {}).sort((a, b) => (b.at || 0) - (a.at || 0)).slice(0, 15);
       $("ovHistory").innerHTML = rows.length ? rows.map(r =>
         `<div class="mn-row"><div class="top"><b style="color:#16a34a">+ $${Number(r.amount).toFixed(2)}</b><span class="date">${fmtDate(r.at)}</span></div></div>`).join("")
-        : `<div class="mn-empty">এখনো কোনো ব্যালেন্স যোগ হয়নি</div>`;
+        : `<div class="mn-empty">No balance has been added yet</div>`;
     });
     listen(ORDERS_PATH + "/" + u.uid, s => {
       const orders = Object.values(s.val() || {}).filter(o => o && typeof o === "object")
@@ -510,54 +510,54 @@ function start(app) {
       const S = 220, c = document.createElement("canvas"); c.width = c.height = S;
       const m = Math.min(img.width, img.height);
       c.getContext("2d").drawImage(img, (img.width - m) / 2, (img.height - m) / 2, m, m, 0, 0, S, S);
-      try { await set(ref(db, "profiles/" + user.uid + "/photo"), c.toDataURL("image/jpeg", 0.8)); toast("✅ ছবি সংরক্ষিত হয়েছে"); }
-      catch (err) { toast("ছবি সেভ হয়নি: " + err.message, false); }
+      try { await set(ref(db, "profiles/" + user.uid + "/photo"), c.toDataURL("image/jpeg", 0.8)); toast("✅ The image has been saved"); }
+      catch (err) { toast("The image was not saved: " + err.message, false); }
     };
     rd.readAsDataURL(f); e.target.value = "";
   };
 
-  $("mnCid").onclick = () => { if (customer.customerId) { navigator.clipboard?.writeText(String(customer.customerId)); toast("ID কপি হয়েছে"); } };
+  $("mnCid").onclick = () => { if (customer.customerId) { navigator.clipboard?.writeText(String(customer.customerId)); toast("ID Copied"); } };
 
-  // ---------- ঠিকানা ----------
+  // ----------Address ----------
   $("adSave").onclick = async () => {
     const a = { label: $("adLabel").value, name: $("adName").value.trim(), phone: $("adPhone").value.trim(), text: $("adText").value.trim() };
-    if (!a.name || !a.phone || !a.text) return toast("নাম, ফোন ও ঠিকানা দিন", false);
+    if (!a.name || !a.phone || !a.text) return toast("Provide your name, phone number, and address", false);
     try {
       const r = push(ref(db, "profiles/" + user.uid + "/addresses")); await set(r, a);
       if (!profile.defaultAddress) await set(ref(db, "profiles/" + user.uid + "/defaultAddress"), r.key);
-      ["adName", "adPhone", "adText"].forEach(i => $(i).value = ""); toast("✅ ঠিকানা সংরক্ষিত হয়েছে");
+      ["adName", "adPhone", "adText"].forEach(i => $(i).value = ""); toast("✅ The address has been saved");
     } catch (e) { toast("Error: " + e.message, false); }
   };
   $("addrList").onclick = async (e) => {
     const d = e.target.dataset; if (!user) return;
-    if (d.del && confirm("ঠিকানাটি মুছবেন?")) {
+    if (d.del && confirm("Delete the address?")) {
       await remove(ref(db, "profiles/" + user.uid + "/addresses/" + d.del));
       if (profile.defaultAddress === d.del) await remove(ref(db, "profiles/" + user.uid + "/defaultAddress"));
     }
-    if (d.def) { await set(ref(db, "profiles/" + user.uid + "/defaultAddress"), d.def); toast("ডিফল্ট ঠিকানা বদলেছে"); }
+    if (d.def) { await set(ref(db, "profiles/" + user.uid + "/defaultAddress"), d.def); toast("The default address has changed"); }
   };
 
-  // ---------- অ্যাকাউন্ট ----------
+  // ---------- Account ----------
   $("acSave").onclick = async () => {
     try {
       await update(ref(db, "customers/" + user.uid), {
         ownerName: $("acOwner").value.trim(), shopName: $("acShop").value.trim(), phone: $("acPhone").value.trim() });
-      toast("✅ তথ্য সংরক্ষিত হয়েছে");
+      toast("✅ Information has been saved");
     } catch (e) { toast("Error: " + e.message, false); }
   };
   $("acEmailBtn").onclick = async () => {
-    const em = $("acEmail").value.trim(); if (!em) return toast("নতুন ইমেইল লিখুন", false);
-    try { await verifyBeforeUpdateEmail(user, em); toast("✅ নতুন ইমেইলে লিংক পাঠানো হয়েছে। লিংকে ক্লিক করলে ইমেইল বদলাবে"); }
-    catch (e) { toast(e.code === "auth/requires-recent-login" ? "নিরাপত্তার জন্য লগআউট করে আবার লগইন করে চেষ্টা করুন" : "Error: " + e.message, false); }
+    const em = $("acEmail").value.trim(); if (!em) return toast("Write a new email", false);
+    try { await verifyBeforeUpdateEmail(user, em); toast("✅ A link has been sent to your new email address. Click the link to change your email"); }
+    catch (e) { toast(e.code === "auth/requires-recent-login" ? "For security reasons, please log out and then log back in to try again" : "Error: " + e.message, false); }
   };
   $("acVerifyBtn").onclick = async () => {
-    try { await sendEmailVerification(user); toast("✅ ভেরিফিকেশন লিংক পাঠানো হয়েছে"); } catch (e) { toast("Error: " + e.message, false); }
+    try { await sendEmailVerification(user); toast("✅ A verification link has been sent"); } catch (e) { toast("Error: " + e.message, false); }
   };
   $("acResetBtn").onclick = async () => {
-    try { await sendPasswordResetEmail(auth, user.email); toast("✅ " + user.email + " ঠিকানায় রিসেট লিংক গেছে"); }
+    try { await sendPasswordResetEmail(auth, user.email); toast("✅ " + user.email + " A reset link has been sent to the address"); }
     catch (e) { toast("Error: " + e.message, false); }
   };
-  $("acLogout").onclick = async () => { if (confirm("লগআউট করবেন?")) { await signOut(auth); location.reload(); } };
+  $("acLogout").onclick = async () => { if (confirm("Log out?")) { await signOut(auth); location.reload(); } };
 }
 </script>
 </body>
