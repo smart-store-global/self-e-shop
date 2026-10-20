@@ -411,7 +411,7 @@ import * as PmAuth from "https://www.gstatic.com/firebasejs/13.0.0/firebase-auth
 import * as PmDb   from "https://www.gstatic.com/firebasejs/13.0.0/firebase-database.js";
 
 // Firebase path where admin-sent orders are saved. Assumed: {path}/{uid}/{orderId}
-const PM_ORDERS_PATH = "orders";
+const PM_ORDERS_PATH = "assignedOrders";
 
 (function profileMenu() {
   const { getAuth, onAuthStateChanged, signOut, sendPasswordResetEmail, sendEmailVerification, verifyBeforeUpdateEmail } = PmAuth;
