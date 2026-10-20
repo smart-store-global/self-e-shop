@@ -521,23 +521,7 @@ const PM_ORDERS_PATH = "assignedOrders";
         .sort((a, b) => new Date(orderTime(b)) - new Date(orderTime(a)));
       renderOrders(orders);
     });
-
-listen("customerNotices/" + u.uid, (s) => {
-  const banner = $("userNoticeBanner");
-  if (!banner) return;
-
-  const notice = s.val();
-  const message = notice?.message;
-
-  if (notice?.active === true && typeof message === "string" && message.trim()) {
-    banner.textContent = message.trim();
-    banner.hidden = false;
-  } else {
-    banner.textContent = "";
-    banner.hidden = true;
-  }
-});
-});
+  });
 
   // ---------- Profile photo ----------
   $("mnPhotoInput").onchange = (e) => {

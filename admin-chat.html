@@ -382,29 +382,6 @@ orderOpenBtn.className = 'attach';
 orderOpenBtn.id = 'order-open-btn';
 orderOpenBtn.textContent = '📦 Order';
 $('reply-bar').insertBefore(orderOpenBtn, $('adminReplyMessage'));
-const noticeOpenBtn = document.createElement("button");
-noticeOpenBtn.type = "button";
-noticeOpenBtn.className = orderOpenBtn.className;
-noticeOpenBtn.id = "noticeOpenBtn";
-noticeOpenBtn.textContent = "🔔 Notice";
-$("#reply-bar").insertBefore(noticeOpenBtn, $("#adminReplyMessage"));
-noticeOpenBtn.onclick = async () => {
-  const modal = $("noticeModal");
-
-  if (!modal) {
-    alert("Notice popup is missing.");
-    return;
-  }
-
-  modal.classList.add("open");
-
-  try {
-    await loadCustomers();
-    renderNoticeCustomers();
-  } catch (error) {
-    console.error("Could not load customers:", error);
-  }
-};
 orderOpenBtn.onclick = () => {
   if (!currentChat) { alert('Select a customer chat first'); return; }
   selectedProducts.clear();
@@ -563,7 +540,16 @@ onAuthStateChanged(auth, (user) => {
 });
 
 // =====================================================================
-//  SEND PRODUCTS PANEL  (admin-chat.html এর <script type="module">
+//  SEND PRODUCTS PANEL  (admin-chat.html এর <script type="module"> এর ভেতরে,
+//  admin-order-add.js কোডের নিচে এবং script এর শেষ ট্যাগ এর ঠিক আগে পেস্ট করুন)
+//
+//  কাজ: All Chats হেডারের নিচে বড় একটা বাটন আসবে — "🛒 Send Products to Customer"।
+//  চাপলে একই জায়গায় দেখাবে:
+//    ১) গ্রাহক বাছার সার্চ বক্স (ID / ইমেইল / দোকানের নাম)
+//    ২) প্রডাক্ট লিস্ট (টিক দিয়ে স্টকের পণ্য বাছুন)
+//    ৩) Send বাটন → গ্রাহকের Order বাটনে চলে যাবে
+//  নোট: এটা admin-order-add.js এর ORDER_PRODUCTS ও makeOrderModal ব্যবহার করে,
+//  তাই admin-order-add.js আগে বসানো থাকতে হবে।
 // =====================================================================
 
 const spStyle = document.createElement('style');
